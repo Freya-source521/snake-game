@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>消消乐</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='30' cy='38' r='20' fill='%23ff5d6c'/><rect x='45' y='20' width='36' height='36' rx='8' fill='%232f6fd6' transform='rotate(45 63 38)'/><polygon points='25,80 50,60 75,80' fill='%2338e0c0'/></svg>" />
+<style>
+  :root {
+    --bg: #0b0e1a; --panel: rgba(255,255,255,0.06); --border: rgba(255,255,255,0.12);
+    --accent: #38f0d0; --accent2: #7c6bff; --text: #e8ecff; --muted: #8a92b8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1200px 800px at 50% 20%, #141a33 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    min-height: 100%; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: none;
+  }
+  header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  a.home { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    text-decoration: none; border-radius: 12px; padding: 8px 14px; font-size: 14px; }
+  a.home:hover { background: rgba(255,255,255,0.1); }
+  .hud { display: flex; flex-direction: column; align-items: center; min-width: 90px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 6px 14px; }
+  .hud .label { font-size: 11px; color: var(--muted); letter-spacing: 2px; }
+  .hud .value { font-size: 22px; font-weight: 700; line-height: 1.2; }
+  #score { color: var(--accent); } #best { color: #ffd166; }
+  .btn { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 12px; padding: 8px 12px; cursor: pointer; font-size: 14px; }
+  .btn:hover { background: rgba(255,255,255,0.1); }
+  #wrap { position: relative; }
+  canvas { width: min(88vmin, 460px); aspect-ratio: 1/1; background: #0d1226;
+    border-radius: 18px; border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0,0,0,.5); display: block; touch-action: none; }
+  #overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 12px; background: rgba(8,10,22,0.8); backdrop-filter: blur(5px);
+    border-radius: 18px; text-align: center; padding: 20px; }
+  #overlay.hidden { display: none; }
+  #overlay h1 { font-size: 40px; letter-spacing: 6px; margin: 0;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #overlay .sub { color: var(--muted); font-size: 14px; line-height: 2; max-width: 320px; }
+  #overlay .sub b { color: var(--accent); }
+  #start-btn { margin-top: 6px; background: linear-gradient(90deg, var(--accent), #22c1a8);
+    color: #062a24; font-size: 18px; font-weight: 700; border: none; padding: 12px 36px;
+    border-radius: 999px; cursor: pointer; box-shadow: 0 8px 24px rgba(56,240,208,.35); }
+  #start-btn:active { transform: scale(.96); }
+  .keys { display: flex; gap: 6px; justify-content: center; margin-top: 4px; flex-wrap: wrap; }
+  .key { background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 4px 10px; font-size: 12px; color: var(--muted); }
+  footer { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+  <header>
+    <a class="home" href="./">🏠 返回主页</a>
+    <div class="hud"><div class="label">得分</div><div class="value" id="score">0</div></div>
+    <div class="hud"><div class="label">最高分</div><div class="value" id="best">0</div></div>
+    <button class="btn" id="hint-btn">💡 提示</button>
+    <button class="btn" id="shuffle-btn">🔀 洗牌</button>
+  </header>
+  <div id="wrap">
+    <canvas id="game"></canvas>
+    <div id="overlay">
+      <h1 id="ov-title">消消乐</h1>
+      <div class="sub" id="ov-sub">交换相邻糖果，凑齐 <b>3 个及以上</b>同色即可消除<br/>连击有额外加分！点击 / 滑动交换</div>
+      <button id="start-btn">开始游戏</button>
+      <div class="keys"><span class="key">🖱️ 点击交换</span><span class="key">📱 点选相邻</span><span class="key">方向键 + 回车</span></div>
+    </div>
+  </div>
+  <footer>三消连击 · 消除越多分越高</footer>
+  <script>
+(function () {
+  'use strict';
+
+  var canvas = document.getElementById('game');
+  var ctx = canvas.getContext('2d');
+  var scoreEl = document.getElementById('score');
+  var bestEl = document.getElementById('best');
+  var overlay = document.getElementById('overlay');
+  var ovTitle = document.getElementById('ov-title');
+  var ovSub = document.getElementById('ov-sub');
+  var startBtn = document.getElementById('start-btn');
+  var hintBtn = document.getElementById('hint-btn');
+  var shuffleBtn = document.getElementById('shuffle-btn');
+
+  var COLS = 8, ROWS = 8, TYPES = 5;
+  var BEST_KEY = 'xxl.best.v1', MUTE_KEY = 'game2048.muted.v1';
+  var dpr = 1, cssW = 400, cell = 50;
+
+  var board = [];          // [r][c] piece or null
+  var phase = 'idle';      // idle | swap | clear | fall
+  var sel = null;          // {r,c}
+  var cursor = { r: 3, c: 3 };
+  var keyboardMode = false;
+  var swapA = null, swapB = null, lastSwap = null, swapT = 0, swapDur = 0.14, swapBack = false;
+  var clearCells = [], clearT = 0, clearDur = 0.22;
+  var combo = 0;
+  var hint = null, hintT = 0;
+  var particles = [], floats = [];
+  var score = 0, best = 0;
+  var audio = null, muted = false;
+
+  try { best = +(localStorage.getItem(BEST_KEY) || 0); } catch (e) {}
+  try { muted = localStorage.getItem(MUTE_KEY) === '1'; } catch (e) {}
+  bestEl.textContent = best;
+
+  var CANDY = [
+    { color: '#ff5d6c', light: '#ffb3ba', shape: 'circle' },
+    { color: '#2f6fd6', light: '#9cc0ff', shape: 'diamond' },
+    { color: '#38e0a8', light: '#b6ffdf', shape: 'triangle' },
+    { color: '#ffd166', light: '#ffefb8', shape: 'star' },
+    { color: '#b07cff', light: '#dcc6ff', shape: 'square' }
+  ];
+
+  // ---------- audio ----------
+  function ensureAudio() {
+    try {
+      if (!audio) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audio = new AC();
+      }
+      if (audio && audio.state === 'suspended') audio.resume();
+    } catch (e) {}
+  }
+  function tone(freq, dur, type, vol, slide) {
+    if (muted || !audio) return;
+    try {
+      var o = audio.createOscillator(), g = audio.createGain();
+      o.type = type || 'sine';
+      o.frequency.setValueAtTime(freq, audio.currentTime);
+      if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), audio.currentTime + dur);
+      g.gain.setValueAtTime(vol, audio.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + dur);
+      o.connect(g); g.connect(audio.destination);
+      o.start(); o.stop(audio.currentTime + dur);
+    } catch (e) {}
+  }
+  var sfx = {
+    swap: function () { tone(300, 0.05, 'sine', 0.06); },
+    bad: function () { tone(180, 0.12, 'sawtooth', 0.08, -60); },
+    clear: function (n, c) { tone(420 + Math.min(400, n * 40), 0.12, 'triangle', 0.16, 180 + c * 60); },
+    combo: function (c) { tone(520 + c * 120, 0.15, 'triangle', 0.16, 220); },
+    shuffle: function () { tone(500, 0.06, 'sine', 0.1, 300); }
+  };
+
+  // ---------- layout ----------
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cssW = canvas.clientWidth;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssW * dpr);
+    cell = cssW / COLS;
+  }
+
+  // ---------- pieces ----------
+  function Piece(type, row, col) {
+    this.type = type; this.row = row; this.col = col;
+    this.xOff = 0; this.yOff = 0; this.scale = 1;
+  }
+  function newPiece(row, col) {
+    return new Piece((Math.random() * TYPES) | 0, row, col);
+  }
+
+  function initBoard() {
+    board = [];
+    for (var r = 0; r < ROWS; r++) {
+      board.push([]);
+      for (var c = 0; c < COLS; c++) {
+        var banned = [];
+        if (c >= 2 && board[r][c - 1].type === board[r][c - 2].type) banned.push(board[r][c - 1].type);
+        if (r >= 2 && board[r - 1][c].type === board[r - 2][c].type) banned.push(board[r - 1][c].type);
+        var opts = [];
+        for (var t = 0; t < TYPES; t++) if (banned.indexOf(t) === -1) opts.push(t);
+        board[r].push(new Piece(opts[(Math.random() * opts.length) | 0], r, c));
+      }
+    }
+    particles = []; floats = []; combo = 0; sel = null; hint = null;
+  }
+
+  // ---------- matching ----------
+  function findMatches() {
+    var set = {};
+    for (var r = 0; r < ROWS; r++) {
+      var run = 1;
+      for (var c = 1; c <= COLS; c++) {
+        if (c < COLS && board[r][c] && board[r][c - 1] && board[r][c].type === board[r][c - 1].type) run++;
+        else {
+          if (run >= 3) for (var k = c - run; k < c; k++) set[r + ',' + k] = true;
+          run = 1;
+        }
+      }
+    }
+    for (var c2 = 0; c2 < COLS; c2++) {
+      var run2 = 1;
+      for (var r2 = 1; r2 <= ROWS; r2++) {
+        if (r2 < ROWS && board[r2][c2] && board[r2 - 1][c2] && board[r2][c2].type === board[r2 - 1][c2].type) run2++;
+        else {
+          if (run2 >= 3) for (var k2 = r2 - run2; k2 < r2; k2++) set[k2 + ',' + c2] = true;
+          run2 = 1;
+        }
+      }
+    }
+    var cells = [];
+    for (var key in set) {
+      var parts = key.split(',');
+      cells.push([+parts[0], +parts[1]]);
+    }
+    return cells;
+  }
+
+  function hasAnyMove() {
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        if (c + 1 < COLS && wouldMatch(r, c, r, c + 1)) return true;
+        if (r + 1 < ROWS && wouldMatch(r, c, r + 1, c)) return true;
+      }
+    }
+    return false;
+  }
+  function wouldMatch(r1, c1, r2, c2) {
+    var p1 = board[r1][c1], p2 = board[r2][c2];
+    if (!p1 || !p2) return false;
+    board[r1][c1] = p2; board[r2][c2] = p1;
+    var m = findMatches();
+    board[r1][c1] = p1; board[r2][c2] = p2;
+    return m.length > 0;
+  }
+
+  // ---------- swap ----------
+  function trySwap(r1, c1, r2, c2) {
+    if (phase !== 'idle') return;
+    var p1 = board[r1][c1], p2 = board[r2][c2];
+    if (!p1 || !p2) return;
+    if (Math.abs(r1 - r2) + Math.abs(c1 - c2) !== 1) return;
+    ensureAudio();
+    lastSwap = { p1: p1, p2: p2, r1: r1, c1: c1, r2: r2, c2: c2 };
+    board[r1][c1] = p2; board[r2][c2] = p1;
+    p1.row = r2; p1.col = c2; p2.row = r1; p2.col = c1;
+    p1.xOff = (c1 - c2) * cell; p1.yOff = (r1 - r2) * cell;
+    p2.xOff = (c2 - c1) * cell; p2.yOff = (r2 - r1) * cell;
+    initOffA = { x: p1.xOff, y: p1.yOff };
+    initOffB = { x: p2.xOff, y: p2.yOff };
+    swapA = p1; swapB = p2; swapT = 0; swapBack = false;
+    phase = 'swap';
+    sfx.swap();
+  }
+
+  // ---------- clear / fall ----------
+  function beginClear(cells) {
+    clearCells = cells; clearT = 0; phase = 'clear';
+    var gained = 10 * cells.length * combo;
+    score += gained;
+    scoreEl.textContent = score;
+    if (score > best) { best = score; bestEl.textContent = best; try { localStorage.setItem(BEST_KEY, String(best)); } catch (e) {} }
+    var cx = 0, cy = 0;
+    for (var i = 0; i < cells.length; i++) { cx += cells[i][1] + 0.5; cy += cells[i][0] + 0.5; }
+    cx = cx / cells.length * cell; cy = cy / cells.length * cell;
+    floats.push({ x: cx, y: cy, text: '+' + gained + (combo > 1 ? ' 连击x' + combo : ''), age: 0 });
+    for (var j = 0; j < cells.length; j++) {
+      var rr = cells[j][0], cc = cells[j][1];
+      var p = board[rr][cc];
+      if (!p) continue;
+      var col = CANDY[p.type].color;
+      for (var k = 0; k < 8; k++) {
+        var a = Math.random() * Math.PI * 2, sp = 60 + Math.random() * 140;
+        particles.push({ x: (cc + 0.5) * cell, y: (rr + 0.5) * cell, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60, life: 0.4 + Math.random() * 0.3, age: 0, size: 3 + Math.random() * 4, color: col });
+      }
+    }
+    sfx.clear(cells.length, combo);
+    if (combo > 1) sfx.combo(combo);
+  }
+
+  function finishClear() {
+    for (var i = 0; i < clearCells.length; i++) {
+      var r = clearCells[i][0], c = clearCells[i][1];
+      board[r][c] = null;
+    }
+    startFall();
+  }
+
+  function startFall() {
+    for (var c = 0; c < COLS; c++) {
+      var write = ROWS - 1;
+      for (var r = ROWS - 1; r >= 0; r--) {
+        if (board[r][c]) {
+          if (write !== r) {
+            var p = board[r][c];
+            board[write][c] = p; board[r][c] = null;
+            p.row = write; p.yOff = (r - write) * cell; p.xOff = 0;
+          }
+          write--;
+        }
+      }
+      var empties = write + 1;
+      for (var rr = 0; rr <= write; rr++) {
+        var p2 = newPiece(rr, c);
+        board[rr][c] = p2;
+        p2.yOff = -empties * cell;
+      }
+    }
+    phase = 'fall';
+  }
+
+  function afterFall() {
+    var m = findMatches();
+    if (m.length) {
+      combo++;
+      beginClear(m);
+    } else {
+      combo = 0;
+      phase = 'idle';
+      if (!hasAnyMove()) {
+        shuffleBoard(true);
+      }
+    }
+  }
+
+  // ---------- shuffle ----------
+  function shuffleBoard(quiet) {
+    ensureAudio();
+    if (!quiet) sfx.shuffle();
+    initBoard();
+    if (!hasAnyMove()) shuffleBoard(true);
+  }
+
+  // ---------- hint ----------
+  function findHint() {
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        if (c + 1 < COLS && wouldMatch(r, c, r, c + 1)) return { r1: r, c1: c, r2: r, c2: c + 1 };
+        if (r + 1 < ROWS && wouldMatch(r, c, r + 1, c)) return { r1: r, c1: c, r2: r + 1, c2: c };
+      }
+    }
+    return null;
+  }
+  function showHint() {
+    if (phase !== 'idle') return;
+    hint = findHint();
+    hintT = 0;
+    if (!hint) {
+      floats.push({ x: cssW / 2, y: cssW / 2, text: '没有可用步，自动洗牌', age: 0 });
+      shuffleBoard(true);
+    }
+  }
+
+  // ---------- update ----------
+  function easeInOut(k) { return k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; }
+  function easeIn(k) { return 1 - Math.pow(1 - k, 3); }
+
+  function update(dt) {
+    // particles
+    for (var i = particles.length - 1; i >= 0; i--) {
+      var pt = particles[i];
+      pt.age += dt;
+      pt.x += pt.vx * dt; pt.y += pt.vy * dt;
+      pt.vy += 400 * dt;
+      if (pt.age >= pt.life) particles.splice(i, 1);
+    }
+    for (var j = floats.length - 1; j >= 0; j--) {
+      var f = floats[j];
+      f.age += dt;
+      if (f.age >= 0.9) floats.splice(j, 1);
+    }
+    if (hint) {
+      hintT += dt;
+      if (hintT > 1.6) hint = null;
+    }
+
+    if (phase === 'swap') {
+      swapT += dt;
+      var k = easeInOut(Math.min(1, swapT / swapDur));
+      swapA.xOff = lastSwap ? initOffA.x * (1 - k) : 0;
+      swapA.yOff = lastSwap ? initOffA.y * (1 - k) : 0;
+      swapB.xOff = initOffB.x * (1 - k);
+      swapB.yOff = initOffB.y * (1 - k);
+      if (swapT >= swapDur) {
+        swapA.xOff = 0; swapA.yOff = 0; swapB.xOff = 0; swapB.yOff = 0;
+        if (swapBack) {
+          phase = 'idle';
+          lastSwap = null;
+        } else {
+          var m = findMatches();
+          if (m.length) {
+            combo = 1;
+            beginClear(m);
+          } else {
+            // swap back
+            var ls = lastSwap;
+            board[ls.r1][ls.c1] = ls.p1; board[ls.r2][ls.c2] = ls.p2;
+            ls.p1.row = ls.r1; ls.p1.col = ls.c1;
+            ls.p2.row = ls.r2; ls.p2.col = ls.c2;
+            ls.p1.xOff = (ls.c2 - ls.c1) * cell; ls.p1.yOff = (ls.r2 - ls.r1) * cell;
+            ls.p2.xOff = (ls.c1 - ls.c2) * cell; ls.p2.yOff = (ls.r1 - ls.r2) * cell;
+            swapBack = true;
+            swapT = 0;
+            initOffA = { x: ls.p1.xOff, y: ls.p1.yOff };
+            initOffB = { x: ls.p2.xOff, y: ls.p2.yOff };
+            sfx.bad();
+          }
+        }
+      }
+    } else if (phase === 'clear') {
+      clearT += dt;
+      var kk = Math.min(1, clearT / clearDur);
+      for (var ci = 0; ci < clearCells.length; ci++) {
+        var p = board[clearCells[ci][0]][clearCells[ci][1]];
+        if (p) p.scale = Math.max(0, 1 - easeIn(kk));
+      }
+      if (clearT >= clearDur) finishClear();
+    } else if (phase === 'fall') {
+      var allLanded = true;
+      for (var r = 0; r < ROWS; r++) {
+        for (var c = 0; c < COLS; c++) {
+          var pc = board[r][c];
+          if (!pc) continue;
+          if (pc.yOff < 0) {
+            var speed = 1500 + Math.abs(pc.yOff) * 8;
+            pc.yOff += speed * dt;
+            if (pc.yOff >= -0.5) pc.yOff = 0;
+            else allLanded = false;
+          } else if (pc.yOff !== 0) pc.yOff = 0;
+        }
+      }
+      if (allLanded) afterFall();
+    }
+  }
+
+  var initOffA = { x: 0, y: 0 }, initOffB = { x: 0, y: 0 };
+
+  // ---------- draw ----------
+  function draw() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssW);
+    // board bg
+    roundRect(0, 0, cssW, cssW, cssW * 0.06);
+    ctx.fillStyle = '#0d1226';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    for (var i = 1; i < COLS; i++) {
+      ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, cssW); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(cssW, i * cell); ctx.stroke();
+    }
+
+    // pieces
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        var p = board[r][c];
+        if (!p) continue;
+        drawPiece(p, r, c);
+      }
+    }
+
+    // hint
+    if (hint) {
+      var blink = 0.5 + 0.5 * Math.sin(performance.now() / 120);
+      ctx.strokeStyle = 'rgba(255,255,255,' + (0.4 + 0.4 * blink) + ')';
+      ctx.lineWidth = 3;
+      for (var h = 0; h < 2; h++) {
+        var hr = h === 0 ? hint.r1 : hint.r2, hc = h === 0 ? hint.c1 : hint.c2;
+        ctx.strokeRect(hc * cell + 2, hr * cell + 2, cell - 4, cell - 4);
+      }
+    }
+
+    // selection
+    if (sel) {
+      ctx.strokeStyle = 'rgba(56,240,208,0.9)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(sel.c * cell + 2, sel.r * cell + 2, cell - 4, cell - 4);
+    }
+    // cursor
+    if (keyboardMode) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(cursor.c * cell + 3, cursor.r * cell + 3, cell - 6, cell - 6);
+    }
+
+    // particles
+    for (var pi = 0; pi < particles.length; pi++) {
+      var pt2 = particles[pi];
+      ctx.globalAlpha = 1 - pt2.age / pt2.life;
+      ctx.fillStyle = pt2.color;
+      ctx.beginPath(); ctx.arc(pt2.x, pt2.y, pt2.size, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // floating texts
+    for (var fi = 0; fi < floats.length; fi++) {
+      var f2 = floats[fi];
+      var a2 = f2.age < 0.6 ? 1 : 1 - (f2.age - 0.6) / 0.3;
+      ctx.globalAlpha = Math.max(0, a2);
+      ctx.fillStyle = '#ffd166';
+      ctx.font = 'bold ' + Math.round(cell * 0.4) + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(f2.text, f2.x, f2.y - f2.age * 40);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawPiece(p, r, c) {
+    var x = (c + 0.5) * cell + p.xOff;
+    var y = (r + 0.5) * cell + p.yOff;
+    var size = cell * 0.72 * p.scale;
+    var candy = CANDY[p.type];
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(p.scale, p.scale);
+    ctx.shadowColor = candy.color;
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = candy.color;
+    ctx.strokeStyle = candy.light;
+    ctx.lineWidth = Math.max(1.5, cell * 0.04);
+    if (candy.shape === 'circle') {
+      ctx.beginPath(); ctx.arc(0, 0, size / 2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.beginPath(); ctx.arc(-size * 0.18, -size * 0.2, size * 0.13, 0, Math.PI * 2); ctx.fill();
+    } else if (candy.shape === 'diamond') {
+      ctx.beginPath();
+      ctx.moveTo(0, -size / 2); ctx.lineTo(size / 2, 0); ctx.lineTo(0, size / 2); ctx.lineTo(-size / 2, 0);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else if (candy.shape === 'triangle') {
+      ctx.beginPath();
+      ctx.moveTo(0, -size / 2); ctx.lineTo(size / 2, size / 2); ctx.lineTo(-size / 2, size / 2);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    } else if (candy.shape === 'star') {
+      drawStar(0, 0, 5, size / 2, size / 4);
+      ctx.fill(); ctx.stroke();
+    } else {
+      var s = size / 2;
+      roundRect(-s, -s, size, size, size * 0.22);
+      ctx.fill(); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawStar(x, y, spikes, outer, inner) {
+    ctx.beginPath();
+    for (var i = 0; i < spikes * 2; i++) {
+      var rad = i % 2 === 0 ? outer : inner;
+      var a = (i / (spikes * 2)) * Math.PI * 2 - Math.PI / 2;
+      var px = x + Math.cos(a) * rad, py = y + Math.sin(a) * rad;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+  }
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ---------- input ----------
+  function cellFromEvent(e) {
+    var rect = canvas.getBoundingClientRect();
+    var x = e.clientX - rect.left, y = e.clientY - rect.top;
+    var c = Math.floor(x / cell), r = Math.floor(y / cell);
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return null;
+    return { r: r, c: c };
+  }
+  function handleTap(r, c) {
+    if (phase !== 'idle') return;
+    ensureAudio();
+    keyboardMode = false;
+    if (!sel) {
+      sel = { r: r, c: c };
+    } else if (sel.r === r && sel.c === c) {
+      sel = null;
+    } else if (Math.abs(sel.r - r) + Math.abs(sel.c - c) === 1) {
+      var sr = sel.r, sc = sel.c;
+      sel = null;
+      trySwap(sr, sc, r, c);
+    } else {
+      sel = { r: r, c: c };
+    }
+  }
+  canvas.addEventListener('pointerdown', function (e) {
+    var p = cellFromEvent(e);
+    if (p) handleTap(p.r, p.c);
+  });
+
+  var CURSOR = {
+    ArrowUp: { dr: -1, dc: 0 }, ArrowDown: { dr: 1, dc: 0 },
+    ArrowLeft: { dr: 0, dc: -1 }, ArrowRight: { dr: 0, dc: 1 },
+    w: { dr: -1, dc: 0 }, s: { dr: 1, dc: 0 }, a: { dr: 0, dc: -1 }, d: { dr: 0, dc: 1 },
+    W: { dr: -1, dc: 0 }, S: { dr: 1, dc: 0 }, A: { dr: 0, dc: -1 }, D: { dr: 0, dc: 1 }
+  };
+  document.addEventListener('keydown', function (e) {
+    if (e.key === ' ' || e.key.indexOf('Arrow') === 0) e.preventDefault();
+    var d = CURSOR[e.key];
+    if (d) {
+      ensureAudio();
+      keyboardMode = true;
+      cursor.r = Math.max(0, Math.min(ROWS - 1, cursor.r + d.dr));
+      cursor.c = Math.max(0, Math.min(COLS - 1, cursor.c + d.dc));
+      return;
+    }
+    if (e.key === 'Enter' || e.key === ' ') {
+      ensureAudio();
+      keyboardMode = true;
+      if (phase !== 'idle') return;
+      if (!sel) {
+        sel = { r: cursor.r, c: cursor.c };
+      } else if (sel.r === cursor.r && sel.c === cursor.c) {
+        sel = null;
+      } else if (Math.abs(sel.r - cursor.r) + Math.abs(sel.c - cursor.c) === 1) {
+        var sr = sel.r, sc = sel.c;
+        sel = null;
+        trySwap(sr, sc, cursor.r, cursor.c);
+      } else {
+        sel = { r: cursor.r, c: cursor.c };
+      }
+    }
+    if (e.key === 'r' || e.key === 'R') start();
+  });
+
+  // ---------- flow ----------
+  function setOverlay(title, sub, btn, show) {
+    ovTitle.textContent = title;
+    ovSub.innerHTML = sub;
+    startBtn.textContent = btn;
+    overlay.classList.toggle('hidden', !show);
+  }
+  function start() {
+    ensureAudio();
+    shuffleBoard(true);
+    score = 0; scoreEl.textContent = '0';
+    phase = 'idle';
+    sel = null;
+    setOverlay('', '', '', false);
+  }
+
+  startBtn.addEventListener('click', function () { ensureAudio(); start(); });
+  hintBtn.addEventListener('click', function () { ensureAudio(); if (stateReady()) showHint(); });
+  shuffleBtn.addEventListener('click', function () { ensureAudio(); if (stateReady()) shuffleBoard(false); });
+  function stateReady() { return phase === 'idle' && overlay.classList.contains('hidden'); }
+  window.addEventListener('resize', resize);
+
+  // ---------- loop ----------
+  var raf = null, last = 0;
+  function loop(now) {
+    var dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    update(dt);
+    draw();
+    raf = requestAnimationFrame(loop);
+  }
+
+  // ---------- boot ----------
+  resize();
+  shuffleBoard(true);
+  setOverlay('消消乐', '交换相邻糖果，凑齐 <b>3 个及以上</b>同色即可消除<br/>连击有额外加分！点击 / 滑动交换', '开始游戏', true);
+  last = performance.now();
+  raf = requestAnimationFrame(loop);
+})();
+  </script>
+</body>
+</html>
