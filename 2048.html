@@ -280,14 +280,14 @@
       for (var r = 0; r < SIZE; r++) {
         var line = [];
         for (var c = 0; c < SIZE; c++) line.push([r, c]);
-        if (dx === -1) line.reverse();
+        if (dx === 1) line.reverse();
         lines.push(line);
       }
     } else {
       for (var c = 0; c < SIZE; c++) {
         var line2 = [];
         for (var r = 0; r < SIZE; r++) line2.push([r, c]);
-        if (dy === -1) line2.reverse();
+        if (dy === 1) line2.reverse();
         lines.push(line2);
       }
     }
@@ -440,6 +440,14 @@
   reset();
   layout();
   setOverlay('2048', '合并相同数字，合成 <b>2048</b> 方块！<br/>方向键 / 滑动屏幕操作', '开始游戏', true);
+
+  // debug hook (read-only, harmless)
+  window.__g2048 = {
+    getGrid: function () { return grid.map(function (row) { return row.map(function (t) { return t ? t.value : 0; }); }); },
+    setCell: function (r, c, v) { grid[r][c] = v ? makeTile(v, r, c, false) : null; },
+    clear: function () { for (var r = 0; r < SIZE; r++) for (var c = 0; c < SIZE; c++) { if (grid[r][c]) { grid[r][c].el.remove(); grid[r][c] = null; } } },
+    move: function (dx, dy) { move(dx, dy); }
+  };
 })();
   </script>
 </body>
