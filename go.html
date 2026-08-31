@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>围棋</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' rx='14' fill='%23c9a15a'/><path d='M10 10 H90 V90 H10 Z' stroke='%238a6a2f' stroke-width='2' fill='none'/><circle cx='40' cy='40' r='13' fill='%230b0e1a'/><circle cx='60' cy='60' r='13' fill='%23e8ecff' stroke='%238a92b8'/></svg>" />
+<style>
+  :root {
+    --bg: #0b0e1a; --panel: rgba(255,255,255,0.06); --border: rgba(255,255,255,0.12);
+    --accent: #38f0d0; --accent2: #7c6bff; --text: #e8ecff; --muted: #8a92b8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1200px 800px at 50% 20%, #141a33 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    min-height: 100%; padding: 10px 8px 14px; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  a.home { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    text-decoration: none; border-radius: 10px; padding: 7px 12px; font-size: 13px; }
+  .hud { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 7px 12px; font-size: 14px; display: flex; align-items: center; gap: 6px; min-width: 90px; justify-content: center; }
+  .btn { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 7px 12px; cursor: pointer; font-size: 13px; }
+  .btn:hover { background: rgba(255,255,255,0.1); }
+  select { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 7px 8px; font-size: 13px; cursor: pointer; }
+  select option { background: #141a33; }
+  #wrap { position: relative; }
+  canvas { width: min(92vmin, 560px); aspect-ratio: 1/1; border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5); display: block; touch-action: none;
+    background: #d8b26a; }
+  .saved-tip { color: var(--muted); font-size: 11px; }
+  #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(8,10,22,0.85); backdrop-filter: blur(5px); z-index: 20; }
+  #overlay.hidden { display: none; }
+  #overlay .box { background: #141a33; border: 1px solid var(--border); border-radius: 18px;
+    padding: 26px 34px; text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; max-width: 92vw; }
+  #overlay h2 { font-size: 30px; letter-spacing: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #overlay p { color: var(--muted); font-size: 14px; line-height: 1.8; }
+  #overlay p b { color: var(--accent); }
+  #overlay .btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  #overlay button { background: linear-gradient(90deg, var(--accent), #22c1a8); color: #062a24;
+    font-size: 15px; font-weight: 700; border: none; padding: 10px 24px; border-radius: 999px; cursor: pointer; }
+  #overlay button.ghost { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+  footer { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+  <header>
+    <a class="home" href="./">🏠 返回主页</a>
+    <div class="hud" id="turn">⚫ 黑方</div>
+    <div class="hud" id="cap">⚫0 ⚪0</div>
+    <select id="mode">
+      <option value="pvp">双人对战</option>
+      <option value="ai" selected>人机对战</option>
+    </select>
+    <select id="size">
+      <option value="9">9 路</option>
+      <option value="13">13 路</option>
+      <option value="19" selected>19 路</option>
+    </select>
+    <button class="btn" id="pass-btn">⏭ 放弃</button>
+    <button class="btn" id="undo-btn">↩ 悔棋</button>
+    <button class="btn" id="new-btn">🔄 新局</button>
+  </header>
+  <div id="wrap">
+    <canvas id="game"></canvas>
+    <div class="saved-tip">💾 自动存档 · 关闭页面后回来可继续</div>
+  </div>
+  <footer>黑先 · 围地多者胜（白贴 6.5 目）· 双方连续放弃即终局计分</footer>
+  <div id="overlay"><div class="box"><h2 id="ov-title">围棋</h2><p id="ov-sub">黑白围地，终局目数多者胜<br/>双人 / 人机对战</p><div class="btns"><button id="ov-btn">开始游戏</button></div></div></div>
+  <script>
+(function () {
+  'use strict';
+
+  var SAVE_KEY = 'go.save.v1';
+  var KOMI = 6.5;
+
+  var canvas = document.getElementById('game');
+  var ctx = canvas.getContext('2d');
+  var turnEl = document.getElementById('turn');
+  var capEl = document.getElementById('cap');
+  var modeSel = document.getElementById('mode');
+  var sizeSel = document.getElementById('size');
+  var passBtn = document.getElementById('pass-btn');
+  var undoBtn = document.getElementById('undo-btn');
+  var newBtn = document.getElementById('new-btn');
+  var overlay = document.getElementById('overlay');
+  var ovTitle = document.getElementById('ov-title');
+  var ovSub = document.getElementById('ov-sub');
+  var ovBtn = document.getElementById('ov-btn');
+
+  var N = 19;
+  var board = [];       // 0 empty, 1 black, 2 white
+  var current = 1;
+  var humanColor = 1;
+  var mode = 'ai';
+  var history = [];     // {r,c,color,pass}
+  var captures = { 1: 0, 2: 0 };
+  var prevBoard = null; // board before the last move (for ko)
+  var lastMove = null;
+  var over = false;
+  var aiThinking = false;
+  var dpr = 1, cssW = 400, cell = 20, margin = 10;
+
+  // ---------- save ----------
+  var saveTimer = null;
+  function queueSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 400);
+  }
+  function saveNow() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        v: 1, N: N, board: board, current: current, mode: mode, humanColor: humanColor,
+        history: history, captures: captures, prevBoard: prevBoard,
+        lastMove: lastMove, over: over, ts: Date.now()
+      }));
+    } catch (e) {}
+  }
+  function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function loadSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } }
+  window.addEventListener('pagehide', saveNow);
+
+  // ---------- helpers ----------
+  function clone(b) { return b.map(function (row) { return row.slice(); }); }
+  function inB(r, c) { return r >= 0 && r < N && c >= 0 && c < N; }
+
+  function getGroup(b, r, c) {
+    var color = b[r][c];
+    var seen = {}, stack = [[r, c]], group = [];
+    while (stack.length) {
+      var p = stack.pop(), rr = p[0], cc = p[1];
+      var key = rr + ',' + cc;
+      if (seen[key]) continue;
+      seen[key] = 1;
+      group.push([rr, cc]);
+      var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (var i = 0; i < 4; i++) {
+        var nr = rr + dirs[i][0], nc = cc + dirs[i][1];
+        if (inB(nr, nc) && b[nr][nc] === color && !seen[nr + ',' + nc]) stack.push([nr, nc]);
+      }
+    }
+    return group;
+  }
+
+  function libertyCount(b, group) {
+    var libs = {};
+    for (var i = 0; i < group.length; i++) {
+      var r = group[i][0], c = group[i][1];
+      var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (var d = 0; d < 4; d++) {
+        var nr = r + dirs[d][0], nc = c + dirs[d][1];
+        if (inB(nr, nc) && b[nr][nc] === 0) libs[nr + ',' + nc] = 1;
+      }
+    }
+    return Object.keys(libs);
+  }
+
+  function equalPos(a, b) {
+    for (var r = 0; r < N; r++) for (var c = 0; c < N; c++) if (a[r][c] !== b[r][c]) return false;
+    return true;
+  }
+
+  // simulate a move on a copy; returns {ok, captured} (does not mutate original)
+  function simulate(b, r, c, color, prev) {
+    if (b[r][c] !== 0) return { ok: false, captured: 0 };
+    b[r][c] = color;
+    var opp = 3 - color;
+    var captured = 0;
+    var seen = {};
+    var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (var d = 0; d < 4; d++) {
+      var nr = r + dirs[d][0], nc = c + dirs[d][1];
+      if (inB(nr, nc) && b[nr][nc] === opp && !seen[nr + ',' + nc]) {
+        var g = getGroup(b, nr, nc);
+        for (var i = 0; i < g.length; i++) seen[g[i][0] + ',' + g[i][1]] = 1;
+        if (libertyCount(b, g).length === 0) {
+          for (var j = 0; j < g.length; j++) b[g[j][0]][g[j][1]] = 0;
+          captured += g.length;
+        }
+      }
+    }
+    var own = getGroup(b, r, c);
+    if (libertyCount(b, own).length === 0) return { ok: false, captured: 0 }; // suicide
+    if (prev && equalPos(b, prev)) return { ok: false, captured: 0 };        // ko
+    return { ok: true, captured: captured };
+  }
+
+  function tryPlace(r, c, color) {
+    var copy = clone(board);
+    var res = simulate(copy, r, c, color, prevBoard);
+    if (!res.ok) return false;
+    var old = clone(board);
+    board = copy;
+    prevBoard = old;
+    captures[color] += res.captured;
+    history.push({ r: r, c: c, color: color, pass: false });
+    lastMove = { r: r, c: c };
+    current = 3 - color;
+    updateHud();
+    draw();
+    queueSave();
+    return true;
+  }
+
+  function pass(color) {
+    history.push({ pass: true, color: color });
+    prevBoard = clone(board);
+    lastMove = null;
+    current = 3 - color;
+    updateHud();
+    draw();
+    queueSave();
+    // check consecutive passes
+    var h = history;
+    if (h.length >= 2 && h[h.length - 1].pass && h[h.length - 2].pass) {
+      endGame();
+    }
+  }
+
+  // ---------- scoring ----------
+  function computeScore() {
+    var blackStones = 0, whiteStones = 0;
+    for (var r = 0; r < N; r++) {
+      for (var c = 0; c < N; c++) {
+        if (board[r][c] === 1) blackStones++;
+        else if (board[r][c] === 2) whiteStones++;
+      }
+    }
+    var visited = {};
+    var blackTerritory = 0, whiteTerritory = 0;
+    for (var r2 = 0; r2 < N; r2++) {
+      for (var c2 = 0; c2 < N; c2++) {
+        if (board[r2][c2] !== 0 || visited[r2 + ',' + c2]) continue;
+        var region = [], stack = [[r2, c2]], touches = { 1: false, 2: false };
+        visited[r2 + ',' + c2] = 1;
+        var dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        while (stack.length) {
+          var p = stack.pop(), rr = p[0], cc = p[1];
+          region.push([rr, cc]);
+          for (var d = 0; d < 4; d++) {
+            var nr = rr + dirs[d][0], nc = cc + dirs[d][1];
+            if (!inB(nr, nc)) continue;
+            var v = board[nr][nc];
+            if (v === 0 && !visited[nr + ',' + nc]) { visited[nr + ',' + nc] = 1; stack.push([nr, nc]); }
+            else if (v !== 0) touches[v] = true;
+          }
+        }
+        if (touches[1] && !touches[2]) blackTerritory += region.length;
+        else if (touches[2] && !touches[1]) whiteTerritory += region.length;
+      }
+    }
+    var blackScore = blackStones + blackTerritory;
+    var whiteScore = whiteStones + whiteTerritory + KOMI;
+    return { black: blackScore, white: whiteScore, bt: blackTerritory, wt: whiteTerritory, bs: blackStones, ws: whiteStones };
+  }
+
+  function endGame() {
+    if (over) return;
+    over = true;
+    var s = computeScore();
+    var diff = Math.abs(s.black - s.white);
+    var winner = s.black > s.white ? 1 : 2;
+    var title, sub;
+    if (mode === 'ai') {
+      title = winner === humanColor ? '🎉 你赢了！' : '🤖 电脑获胜';
+    } else {
+      title = winner === 1 ? '⚫ 黑方获胜' : '⚪ 白方获胜';
+    }
+    sub = '黑 <b>' + s.black + '</b> 目（子' + s.bs + '+地' + s.bt + '） · 白 <b>' + s.white +
+      '</b> 目（子' + s.ws + '+地' + s.wt + '+贴目' + KOMI + '）<br/>胜差 <b>' + diff.toFixed(1) + '</b> 目';
+    showOverlay(title, sub, '再来一局', false);
+    queueSave();
+  }
+
+  // ---------- AI ----------
+  function groupsOf(b, color) {
+    var seen = {}, groups = [];
+    for (var r = 0; r < N; r++) {
+      for (var c = 0; c < N; c++) {
+        if (b[r][c] === color && !seen[r + ',' + c]) {
+          var g = getGroup(b, r, c);
+          for (var i = 0; i < g.length; i++) seen[g[i][0] + ',' + g[i][1]] = 1;
+          groups.push(g);
+        }
+      }
+    }
+    return groups;
+  }
+
+  function candidates() {
+    var set = {};
+    var hasAny = false;
+    for (var r = 0; r < N; r++) {
+      for (var c = 0; c < N; c++) {
+        if (board[r][c] !== 0) {
+          hasAny = true;
+          for (var dr = -2; dr <= 2; dr++) {
+            for (var dc = -2; dc <= 2; dc++) {
+              var rr = r + dr, cc = c + dc;
+              if (inB(rr, cc) && board[rr][cc] === 0) set[rr + ',' + cc] = 1;
+            }
+          }
+        }
+      }
+    }
+    if (!hasAny) return null; // empty board -> play center
+    var list = [];
+    for (var k in set) list.push(k.split(','));
+    return list;
+  }
+
+  function aiMove() {
+    if (over || aiThinking) return;
+    var aiColor = 3 - humanColor;
+    var opp = humanColor;
+
+    // 1) capture opponent group with 1 liberty
+    var oppGroups = groupsOf(board, opp);
+    for (var i = 0; i < oppGroups.length; i++) {
+      var libs = libertyCount(board, oppGroups[i]);
+      if (libs.length === 1) {
+        var p = libs[0].split(',');
+        if (tryPlace(+p[0], +p[1], aiColor)) return;
+      }
+    }
+    // 2) defend own group with 1 liberty
+    var myGroups = groupsOf(board, aiColor);
+    for (var j = 0; j < myGroups.length; j++) {
+      var libs2 = libertyCount(board, myGroups[j]);
+      if (libs2.length === 1) {
+        var p2 = libs2[0].split(',');
+        if (tryPlace(+p2[0], +p2[1], aiColor)) return;
+      }
+    }
+    // 3) evaluate candidates
+    var cands = candidates();
+    var mid = (N - 1) / 2;
+    if (!cands) {
+      var c0 = Math.round(mid);
+      if (tryPlace(c0, c0, aiColor)) return;
+      return;
+    }
+    var best = null, bestScore = -1;
+    for (var k = 0; k < cands.length; k++) {
+      var rr = +cands[k][0], cc = +cands[k][1];
+      var copy = clone(board);
+      var res = simulate(copy, rr, cc, aiColor, prevBoard);
+      if (!res.ok) continue;
+      var own = getGroup(copy, rr, cc);
+      var libs3 = libertyCount(copy, own).length;
+      var centerBias = 6 - Math.abs(rr - mid) - Math.abs(cc - mid);
+      var sc = res.captured * 40 + libs3 * 3 + centerBias + Math.random() * 5;
+      if (sc > bestScore) { bestScore = sc; best = [rr, cc]; }
+    }
+    if (best) tryPlace(best[0], best[1], aiColor);
+  }
+
+  // ---------- render ----------
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cssW = canvas.clientWidth;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssW * dpr);
+    cell = cssW / (N + 1);
+    margin = cell;
+  }
+
+  function starPoints() {
+    var s = N === 19 ? [3, 9, 15] : N === 13 ? [3, 6, 9] : [2, 4, 6];
+    var pts = [];
+    for (var i = 0; i < s.length; i++) for (var j = 0; j < s.length; j++) pts.push([s[i], s[j]]);
+    return pts;
+  }
+
+  function draw() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssW);
+    // wooden board
+    var g = ctx.createLinearGradient(0, 0, cssW, cssW);
+    g.addColorStop(0, '#e2bd78');
+    g.addColorStop(1, '#cda455');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, cssW, cssW);
+    // grid
+    ctx.strokeStyle = '#5a4420';
+    ctx.lineWidth = 1;
+    for (var i = 0; i < N; i++) {
+      ctx.beginPath();
+      ctx.moveTo(margin + i * cell, margin);
+      ctx.lineTo(margin + i * cell, margin + (N - 1) * cell);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(margin, margin + i * cell);
+      ctx.lineTo(margin + (N - 1) * cell, margin + i * cell);
+      ctx.stroke();
+    }
+    // star points
+    ctx.fillStyle = '#5a4420';
+    var stars = starPoints();
+    for (var s = 0; s < stars.length; s++) {
+      ctx.beginPath();
+      ctx.arc(margin + stars[s][0] * cell, margin + stars[s][1] * cell, Math.max(2, cell * 0.12), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // stones
+    for (var r = 0; r < N; r++) {
+      for (var c = 0; c < N; c++) {
+        if (board[r][c]) drawStone(margin + c * cell, margin + r * cell, board[r][c], lastMove && lastMove.r === r && lastMove.c === c);
+      }
+    }
+  }
+
+  function drawStone(x, y, color, isLast) {
+    var rad = cell * 0.46;
+    ctx.save();
+    if (isLast) {
+      ctx.shadowColor = 'rgba(255,60,60,0.9)';
+      ctx.shadowBlur = 12;
+    }
+    var g = ctx.createRadialGradient(x - rad * 0.35, y - rad * 0.35, rad * 0.15, x, y, rad);
+    if (color === 1) {
+      g.addColorStop(0, '#4a4a4a');
+      g.addColorStop(0.5, '#141414');
+      g.addColorStop(1, '#000000');
+    } else {
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.6, '#e8e4d8');
+      g.addColorStop(1, '#b8b2a0');
+    }
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    if (isLast) {
+      ctx.fillStyle = color === 1 ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.7)';
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(1.5, cell * 0.09), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function updateHud() {
+    if (over) return;
+    var colorName = current === 1 ? '⚫ 黑方' : '⚪ 白方';
+    if (mode === 'ai') {
+      colorName = current === humanColor ? (humanColor === 1 ? '⚫ 你' : '⚪ 你') : (humanColor === 1 ? '⚪ 电脑' : '⚫ 电脑');
+    }
+    turnEl.textContent = colorName;
+    capEl.textContent = '⚫' + captures[1] + ' ⚪' + captures[2];
+  }
+
+  // ---------- game flow ----------
+  function reset() {
+    board = [];
+    for (var r = 0; r < N; r++) { board.push([]); for (var c = 0; c < N; c++) board[r].push(0); }
+    current = 1; // 围棋黑棋始终先手
+    humanColor = 1;
+    if (mode === 'ai') humanColor = Math.random() < 0.5 ? 1 : 2; // AI 模式下随机执黑白
+    history = [];
+    captures = { 1: 0, 2: 0 };
+    prevBoard = null;
+    lastMove = null;
+    over = false;
+    aiThinking = false;
+    updateHud();
+    draw();
+  }
+
+  function newGame() {
+    clearSave();
+    N = +sizeSel.value;
+    mode = modeSel.value;
+    resize();
+    reset();
+    hideOverlay();
+  }
+
+  // ---------- input ----------
+  function cellFromEvent(e) {
+    var rect = canvas.getBoundingClientRect();
+    var x = e.clientX - rect.left, y = e.clientY - rect.top;
+    var c = Math.round((x - margin) / cell), r = Math.round((y - margin) / cell);
+    if (r < 0 || r >= N || c < 0 || c >= N) return null;
+    if (Math.abs((x - margin) / cell - c) > 0.48 || Math.abs((y - margin) / cell - r) > 0.48) return null;
+    return { r: r, c: c };
+  }
+
+  canvas.addEventListener('pointerdown', function (e) {
+    if (over) return;
+    if (mode === 'ai' && current !== humanColor) return;
+    var p = cellFromEvent(e);
+    if (!p) return;
+    tryPlace(p.r, p.c, current);
+  });
+
+  function undo() {
+    if (over) return;
+    if (!history.length) return;
+    if (mode === 'ai') {
+      // undo back to human's turn (2 moves, skipping passes)
+      var count = 0;
+      while (history.length && count < 2) {
+        var m = history.pop();
+        count++;
+        if (!m.pass) {
+          board[m.r][m.c] = 0;
+          // NOTE: captured stones cannot be restored exactly; rebuild via replay
+        }
+      }
+    } else {
+      var m2 = history.pop();
+      if (!m2.pass) board[m2.r][m2.c] = 0;
+    }
+    // rebuild state from history to restore captures/prevBoard
+    rebuildFromHistory();
+  }
+
+  function rebuildFromHistory() {
+    board = [];
+    for (var r = 0; r < N; r++) { board.push([]); for (var c = 0; c < N; c++) board[r].push(0); }
+    captures = { 1: 0, 2: 0 };
+    prevBoard = null;
+    var cur = 1;
+    for (var i = 0; i < history.length; i++) {
+      var h = history[i];
+      if (h.pass) { prevBoard = clone(board); cur = 3 - cur; continue; }
+      var old = clone(board);
+      var copy = clone(board);
+      var res = simulate(copy, h.r, h.c, h.color, prevBoard);
+      if (res.ok) {
+        board = copy;
+        prevBoard = old;
+        captures[h.color] += res.captured;
+        cur = 3 - cur;
+      }
+    }
+    current = history.length ? cur : (mode === 'ai' ? humanColor : 1);
+    lastMove = history.length && !history[history.length - 1].pass ? { r: history[history.length - 1].r, c: history[history.length - 1].c } : null;
+    updateHud();
+    draw();
+    queueSave();
+  }
+
+  // ---------- overlay ----------
+  function showOverlay(title, sub, btn, isGhost) {
+    ovTitle.textContent = title;
+    ovSub.innerHTML = sub;
+    ovBtn.textContent = btn;
+    ovBtn.className = isGhost ? 'ghost' : '';
+    overlay.classList.remove('hidden');
+  }
+  function hideOverlay() { overlay.classList.add('hidden'); }
+
+  // ---------- events ----------
+  modeSel.addEventListener('change', function () { newGame(); });
+  sizeSel.addEventListener('change', function () { newGame(); });
+  passBtn.addEventListener('click', function () {
+    if (over) return;
+    if (mode === 'ai' && current !== humanColor) return;
+    pass(current);
+  });
+  undoBtn.addEventListener('click', function () { if (overlay.classList.contains('hidden')) undo(); });
+  newBtn.addEventListener('click', function () { if (!overlay.classList.contains('hidden')) hideOverlay(); newGame(); });
+  ovBtn.addEventListener('click', function () { newGame(); });
+  window.addEventListener('resize', function () { resize(); draw(); });
+
+  // ---------- restore ----------
+  function restoreGame(data) {
+    N = data.N || 19;
+    sizeSel.value = String(N);
+    mode = data.mode === 'pvp' ? 'pvp' : 'ai';
+    modeSel.value = mode;
+    humanColor = data.humanColor || 1;
+    board = data.board;
+    current = data.current || 1;
+    history = data.history || [];
+    captures = data.captures || { 1: 0, 2: 0 };
+    prevBoard = data.prevBoard || null;
+    lastMove = data.lastMove || null;
+    over = !!data.over;
+    aiThinking = false;
+    resize();
+    updateHud();
+    draw();
+    hideOverlay();
+  }
+
+  // ---------- AI loop ----------
+  setInterval(function () {
+    if (mode === 'ai' && !over && current !== humanColor && !aiThinking) aiMove();
+  }, 400);
+
+  // ---------- boot ----------
+  resize();
+  var saved = loadSave();
+  if (saved) {
+    reset();
+    showOverlay('检测到存档', '上次下到一半，是否继续？<br/>' + (saved.mode === 'ai'
+      ? (saved.current === (saved.humanColor || 1) ? '轮到你落子' : '轮到电脑落子')
+      : (saved.current === 1 ? '轮到 ⚫ 黑方' : '轮到 ⚪ 白方')),
+      '放弃存档，新局', true);
+    var resumeBtn = document.createElement('button');
+    resumeBtn.textContent = '继续上次棋局';
+    resumeBtn.style.background = 'linear-gradient(90deg, var(--accent), #22c1a8)';
+    ovBtn.parentNode.insertBefore(resumeBtn, ovBtn.nextSibling);
+    resumeBtn.addEventListener('click', function () { resumeBtn.remove(); restoreGame(saved); });
+  } else {
+    reset();
+    hideOverlay();
+  }
+
+  // debug hook (read-only, harmless)
+  window.__go = {
+    getBoard: function () { return board.map(function (row) { return row.slice(); }); },
+    tryPlace: function (r, c, color) { return tryPlace(r, c, color); },
+    getCurrent: function () { return current; },
+    getCaptures: function () { return { b: captures[1], w: captures[2] }; }
+  };
+})();
+  </script>
+</body>
+</html>
