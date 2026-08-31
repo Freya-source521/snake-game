@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>扫雷</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='38' fill='%230b0e1a' stroke='%23ff5d6c' stroke-width='6'/><circle cx='38' cy='38' r='6' fill='%23ff5d6c'/><circle cx='62' cy='38' r='6' fill='%23ff5d6c'/><path d='M50 42 L44 64 M50 42 L56 64 M44 64 L56 64' stroke='%23ff5d6c' stroke-width='5' fill='none'/></svg>" />
+<style>
+  :root {
+    --bg: #0b0e1a; --panel: rgba(255,255,255,0.06); --border: rgba(255,255,255,0.12);
+    --accent: #38f0d0; --accent2: #7c6bff; --text: #e8ecff; --muted: #8a92b8; --err: #ff5d6c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1200px 800px at 50% 20%, #141a33 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    min-height: 100%; padding: 10px 8px 14px; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  a.home { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    text-decoration: none; border-radius: 10px; padding: 7px 12px; font-size: 13px; }
+  .hud { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 6px 12px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .hud .lbl { color: var(--muted); font-size: 11px; }
+  .btn { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 7px 12px; cursor: pointer; font-size: 13px; }
+  .btn:hover { background: rgba(255,255,255,0.1); }
+  .btn.active { border-color: var(--accent); color: var(--accent); }
+  select { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 7px 8px; font-size: 13px; cursor: pointer; }
+  select option { background: #141a33; }
+  #wrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  #board { display: grid; gap: 2px; background: rgba(255,255,255,0.08); padding: 2px; border-radius: 8px; }
+  .cell {
+    width: min(4.6vmin, 26px); height: min(4.6vmin, 26px);
+    background: #1b2240; border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: min(3.4vmin, 17px); font-weight: 800; cursor: pointer;
+    line-height: 1;
+  }
+  .cell:hover { background: #27305a; }
+  .cell.revealed { background: #10152b; cursor: default; }
+  .cell.revealed:hover { background: #10152b; }
+  .cell.bg-mine { background: rgba(255,93,108,0.35); }
+  .n1 { color: #38b6ff; } .n2 { color: #38e0a8; } .n3 { color: #ff5d6c; }
+  .n4 { color: #b07cff; } .n5 { color: #ffd166; } .n6 { color: #ff9a5e; } .n7 { color: #e8ecff; } .n8 { color: #ff6b6b; }
+  #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(8,10,22,0.85); backdrop-filter: blur(5px); z-index: 20; }
+  #overlay.hidden { display: none; }
+  #overlay .box { background: #141a33; border: 1px solid var(--border); border-radius: 18px;
+    padding: 26px 34px; text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; max-width: 92vw; }
+  #overlay h2 { font-size: 30px; letter-spacing: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #overlay p { color: var(--muted); font-size: 14px; line-height: 1.8; }
+  #overlay p b { color: var(--accent); }
+  #overlay .btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  #overlay button { background: linear-gradient(90deg, var(--accent), #22c1a8); color: #062a24;
+    font-size: 15px; font-weight: 700; border: none; padding: 10px 24px; border-radius: 999px; cursor: pointer; }
+  #overlay button.ghost { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+  .saved-tip { color: var(--muted); font-size: 11px; }
+  footer { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+  <header>
+    <a class="home" href="./">🏠 返回主页</a>
+    <div class="hud"><span class="lbl">雷</span><span id="mines">10</span></div>
+    <div class="hud"><span class="lbl">⏱</span><span id="timer">000</span></div>
+    <select id="diff">
+      <option value="easy">简单 9×9</option>
+      <option value="medium" selected>中等 16×16</option>
+      <option value="hard">困难 16×30</option>
+    </select>
+    <button class="btn" id="flag-btn">🚩 插旗</button>
+    <button class="btn" id="new-btn">🔄 新局</button>
+  </header>
+  <div id="wrap">
+    <div id="board"></div>
+    <div class="saved-tip">💾 自动存档 · 关闭页面后回来可继续</div>
+  </div>
+  <footer>左键/点按翻开 · 右键插旗 · 数字上双击可展开 · 手机长按插旗</footer>
+  <div id="overlay"><div class="box"><h2 id="ov-title">扫雷</h2><p id="ov-sub">翻开所有非雷格子即胜利<br/>数字表示周围 8 格的地雷数</p><div class="btns"><button id="ov-btn">开始游戏</button></div></div></div>
+  <script>
+(function () {
+  'use strict';
+
+  var DIFFS = {
+    easy: { rows: 9, cols: 9, mines: 10 },
+    medium: { rows: 16, cols: 16, mines: 40 },
+    hard: { rows: 16, cols: 30, mines: 99 }
+  };
+  var SAVE_KEY = 'mine.save.v1';
+  var BEST_KEY = 'mine.best.v1';
+
+  var boardEl = document.getElementById('board');
+  var minesEl = document.getElementById('mines');
+  var timerEl = document.getElementById('timer');
+  var diffSel = document.getElementById('diff');
+  var flagBtn = document.getElementById('flag-btn');
+  var newBtn = document.getElementById('new-btn');
+  var overlay = document.getElementById('overlay');
+  var ovTitle = document.getElementById('ov-title');
+  var ovSub = document.getElementById('ov-sub');
+  var ovBtn = document.getElementById('ov-btn');
+
+  var difficulty = 'medium';
+  var rows = 16, cols = 16, mineCount = 40;
+  var mine = [], revealed = [], flagged = [];
+  var state = 'idle'; // idle | playing | won | lost
+  var timerSec = 0, timerId = null, flagsUsed = 0;
+  var best = {};
+  try { best = JSON.parse(localStorage.getItem(BEST_KEY) || '{}'); } catch (e) {}
+
+  // ---------- save ----------
+  var saveTimer = null;
+  function queueSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 400);
+  }
+  function saveNow() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        v: 1, difficulty: difficulty, rows: rows, cols: cols, mines: mineCount,
+        mine: mine, revealed: revealed, flagged: flagged,
+        state: state === 'won' || state === 'lost' ? 'playing' : state,
+        timerSec: timerSec, flagsUsed: flagsUsed, ts: Date.now()
+      }));
+    } catch (e) {}
+  }
+  function hasSave() {
+    try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; }
+  }
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function loadSave() {
+    try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; }
+  }
+  window.addEventListener('pagehide', saveNow);
+
+  // ---------- board ----------
+  function setup(diff) {
+    difficulty = diff;
+    var d = DIFFS[diff];
+    rows = d.rows; cols = d.cols; mineCount = d.mines;
+    mine = []; revealed = []; flagged = [];
+    for (var r = 0; r < rows; r++) {
+      mine.push([]); revealed.push([]); flagged.push([]);
+      for (var c = 0; c < cols; c++) { mine[r].push(0); revealed[r].push(false); flagged[r].push(false); }
+    }
+    state = 'idle';
+    timerSec = 0; flagsUsed = 0;
+    if (timerId) { clearInterval(timerId); timerId = null; }
+    timerEl.textContent = '000';
+    minesEl.textContent = mineCount;
+    render();
+  }
+
+  function placeMines(safeR, safeC) {
+    var cells = [];
+    for (var r = 0; r < rows; r++)
+      for (var c = 0; c < cols; c++)
+        if (Math.abs(r - safeR) > 1 || Math.abs(c - safeC) > 1) cells.push([r, c]);
+    // shuffle
+    for (var i = cells.length - 1; i > 0; i--) {
+      var j = (Math.random() * (i + 1)) | 0;
+      var t = cells[i]; cells[i] = cells[j]; cells[j] = t;
+    }
+    var placed = 0;
+    for (var k = 0; k < cells.length && placed < mineCount; k++) {
+      mine[cells[k][0]][cells[k][1]] = 1;
+      placed++;
+    }
+    // if not enough cells (tiny board edge), place anywhere not safe
+    if (placed < mineCount) {
+      for (var r2 = 0; r2 < rows && placed < mineCount; r2++)
+        for (var c2 = 0; c2 < cols && placed < mineCount; c2++)
+          if (!(Math.abs(r2 - safeR) <= 1 && Math.abs(c2 - safeC) <= 1) && !mine[r2][c2]) { mine[r2][c2] = 1; placed++; }
+    }
+  }
+
+  function neighborMines(r, c) {
+    var n = 0;
+    for (var dr = -1; dr <= 1; dr++)
+      for (var dc = -1; dc <= 1; dc++) {
+        var rr = r + dr, cc = c + dc;
+        if (rr >= 0 && rr < rows && cc >= 0 && cc < cols && mine[rr][cc]) n++;
+      }
+    return n;
+  }
+
+  function revealCell(r, c) {
+    if (revealed[r][c] || flagged[r][c]) return;
+    revealed[r][c] = true;
+    if (mine[r][c]) { gameOver(r, c); return; }
+    if (neighborMines(r, c) === 0) {
+      for (var dr = -1; dr <= 1; dr++)
+        for (var dc = -1; dc <= 1; dc++) {
+          var rr = r + dr, cc = c + dc;
+          if (rr >= 0 && rr < rows && cc >= 0 && cc < cols && !revealed[rr][cc] && !flagged[rr][cc] && !mine[rr][cc])
+            revealCell(rr, cc);
+        }
+    }
+    checkWin();
+  }
+
+  function chord(r, c) {
+    if (!revealed[r][c]) return;
+    var flags = 0;
+    for (var dr = -1; dr <= 1; dr++)
+      for (var dc = -1; dc <= 1; dc++) {
+        var rr = r + dr, cc = c + dc;
+        if (rr >= 0 && rr < rows && cc >= 0 && cc < cols && flagged[rr][cc]) flags++;
+      }
+    if (flags !== neighborMines(r, c)) return;
+    for (var dr2 = -1; dr2 <= 1; dr2++)
+      for (var dc2 = -1; dc2 <= 1; dc2++) {
+        var r2 = r + dr2, c2 = c + dc2;
+        if (r2 >= 0 && r2 < rows && c2 >= 0 && c2 < cols && !revealed[r2][c2] && !flagged[r2][c2]) revealCell(r2, c2);
+      }
+  }
+
+  function toggleFlag(r, c) {
+    if (revealed[r][c]) return;
+    if (state === 'won' || state === 'lost') return;
+    if (state === 'idle') startTimer();
+    flagged[r][c] = !flagged[r][c];
+    flagsUsed += flagged[r][c] ? 1 : -1;
+    minesEl.textContent = mineCount - flagsUsed;
+    render();
+    queueSave();
+  }
+
+  function startTimer() {
+    if (timerId) return;
+    timerId = setInterval(function () {
+      timerSec++;
+      timerEl.textContent = String(Math.min(999, timerSec)).padStart(3, '0');
+    }, 1000);
+  }
+
+  function clickCell(r, c) {
+    if (state === 'won' || state === 'lost') return;
+    if (revealed[r][c]) { chord(r, c); render(); queueSave(); return; }
+    if (flagMode) { toggleFlag(r, c); return; }
+    if (flagged[r][c]) return;
+    if (state === 'idle') { placeMines(r, c); state = 'playing'; startTimer(); }
+    revealCell(r, c);
+    render();
+    queueSave();
+    if (state === 'lost' || state === 'won') stopTimer();
+  }
+
+  function gameOver(r, c) {
+    state = 'lost';
+    for (var rr = 0; rr < rows; rr++)
+      for (var cc = 0; cc < cols; cc++)
+        if (mine[rr][cc] && !flagged[rr][cc]) revealed[rr][cc] = true;
+    showOverlay('💥 踩到雷了！', '用时 <b>' + timerEl.textContent + '</b> 秒', '再来一局', false);
+  }
+
+  function checkWin() {
+    var revealedCount = 0;
+    for (var r = 0; r < rows; r++)
+      for (var c = 0; c < cols; c++)
+        if (revealed[r][c]) revealedCount++;
+    if (revealedCount === rows * cols - mineCount) {
+      state = 'won';
+      var t = timerSec;
+      if (!best[difficulty] || t < best[difficulty]) {
+        best[difficulty] = t;
+        try { localStorage.setItem(BEST_KEY, JSON.stringify(best)); } catch (e) {}
+      }
+      showOverlay('🎉 扫雷成功！', '用时 <b>' + timerEl.textContent + '</b> 秒' +
+        (best[difficulty] === t ? ' · 新纪录！' : ' · 最佳 ' + best[difficulty] + ' 秒'), '再来一局', false);
+    }
+  }
+
+  function stopTimer() { if (timerId) { clearInterval(timerId); timerId = null; } }
+
+  // ---------- render ----------
+  function render() {
+    boardEl.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+    boardEl.innerHTML = '';
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        (function (rr, cc) {
+          var el = document.createElement('div');
+          el.className = 'cell';
+          if (revealed[rr][cc]) {
+            el.classList.add('revealed');
+            if (mine[rr][cc]) {
+              el.textContent = '💣';
+              el.classList.add('bg-mine');
+            } else {
+              var n = neighborMines(rr, cc);
+              if (n > 0) { el.textContent = n; el.classList.add('n' + n); }
+            }
+          } else if (flagged[rr][cc]) {
+            el.textContent = '🚩';
+          }
+          el.addEventListener('click', function (e) { e.preventDefault(); clickCell(rr, cc); });
+          el.addEventListener('contextmenu', function (e) { e.preventDefault(); toggleFlag(rr, cc); });
+          // mobile long-press = flag
+          var pressTimer = null;
+          el.addEventListener('touchstart', function (e) {
+            if (state === 'idle') startTimer();
+            pressTimer = setTimeout(function () {
+              toggleFlag(rr, cc);
+              pressTimer = null;
+            }, 450);
+          }, { passive: true });
+          el.addEventListener('touchend', function (e) {
+            if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; clickCell(rr, cc); }
+          }, { passive: true });
+          el.addEventListener('touchmove', function () {
+            if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+          }, { passive: true });
+          boardEl.appendChild(el);
+        })(r, c);
+      }
+    }
+  }
+
+  // ---------- overlay / flow ----------
+  function showOverlay(title, sub, btn, isSavePrompt) {
+    ovTitle.textContent = title;
+    ovSub.innerHTML = sub;
+    ovBtn.textContent = btn;
+    ovBtn.className = isSavePrompt ? 'ghost' : '';
+    overlay.classList.remove('hidden');
+  }
+  function hideOverlay() { overlay.classList.add('hidden'); }
+
+  function newGame() {
+    clearSave();
+    setup(diffSel.value);
+    hideOverlay();
+  }
+
+  function continueGame(data) {
+    difficulty = data.difficulty || 'medium';
+    diffSel.value = difficulty;
+    rows = data.rows; cols = data.cols; mineCount = data.mines;
+    mine = data.mine; revealed = data.revealed; flagged = data.flagged;
+    timerSec = data.timerSec || 0;
+    flagsUsed = data.flagsUsed || 0;
+    state = data.state === 'playing' ? 'playing' : 'idle';
+    timerEl.textContent = String(Math.min(999, timerSec)).padStart(3, '0');
+    minesEl.textContent = mineCount - flagsUsed;
+    if (state === 'playing' && timerSec > 0) startTimer();
+    render();
+    hideOverlay();
+  }
+
+  // ---------- events ----------
+  diffSel.addEventListener('change', function () { newGame(); });
+  newBtn.addEventListener('click', function () { if (state !== 'idle' || true) newGame(); });
+  flagBtn.addEventListener('click', function () { flagMode = !flagMode; flagBtn.classList.toggle('active', flagMode); });
+  var flagMode = false;
+  ovBtn.addEventListener('click', function () { newGame(); });
+  window.addEventListener('resize', render);
+
+  // ---------- boot ----------
+  var saved = loadSave();
+  if (saved) {
+    setup(diffSel.value);
+    showOverlay('检测到存档', '上次玩到一半，是否继续？<br/>存档时间：' + (new Date(saved.ts || Date.now())).toLocaleString(),
+      '放弃存档，新游戏', true);
+    var resumeBtn = document.createElement('button');
+    resumeBtn.textContent = '继续上次游戏';
+    resumeBtn.style.background = 'linear-gradient(90deg, var(--accent), #22c1a8)';
+    ovBtn.parentNode.insertBefore(resumeBtn, ovBtn.nextSibling);
+    resumeBtn.addEventListener('click', function () { continueGame(saved); });
+  } else {
+    setup(diffSel.value);
+    hideOverlay();
+  }
+})();
+  </script>
+</body>
+</html>

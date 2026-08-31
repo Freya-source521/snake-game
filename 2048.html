@@ -107,6 +107,7 @@
 
   var SIZE = 4;
   var BEST_KEY = 'game2048.best.v1';
+  var SAVE_KEY = 'game2048.save.v1';
   var MUTE_KEY = 'game2048.muted.v1';
 
   var COLORS = {
@@ -162,6 +163,39 @@
     win: function () { tone(523, 0.12, 'triangle', 0.18, 0); setTimeout(function(){ tone(659,0.12,'triangle',0.18,0); },120); setTimeout(function(){ tone(784,0.2,'triangle',0.18,0); },240); },
     over: function () { tone(300, 0.4, 'sawtooth', 0.16, -160); }
   };
+
+  // ---------- save ----------
+  var saveTimer = null;
+  function queueSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 400);
+  }
+  function saveNow() {
+    try {
+      var g = [];
+      for (var r = 0; r < SIZE; r++) { g.push([]); for (var c = 0; c < SIZE; c++) g[r].push(grid[r][c] ? grid[r][c].value : 0); }
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, grid: g, score: score, best: best, ts: Date.now() }));
+    } catch (e) {}
+  }
+  function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function loadSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } }
+  window.addEventListener('pagehide', saveNow);
+  function restoreGame(data) {
+    var old = boardEl.querySelectorAll('.tile');
+    for (var i = 0; i < old.length; i++) old[i].remove();
+    grid = [];
+    for (var r = 0; r < SIZE; r++) { grid.push([]); for (var c = 0; c < SIZE; c++) grid[r].push(null); }
+    for (var r2 = 0; r2 < SIZE; r2++)
+      for (var c2 = 0; c2 < SIZE; c2++)
+        if (data.grid && data.grid[r2] && data.grid[r2][c2]) grid[r2][c2] = makeTile(data.grid[r2][c2], r2, c2, false);
+    score = data.score || 0;
+    scoreEl.textContent = score;
+    if (data.best > best) { best = data.best; bestEl.textContent = best; }
+    state = 'playing';
+    renderTiles();
+    setOverlay('', '', '', false);
+  }
 
   // ---------- layout ----------
   function layout() {
@@ -339,6 +373,7 @@
       sfx.move();
       spawnTile();
       renderTiles();
+      queueSave();
       if (noMoves()) gameOver();
     }
   }
@@ -364,6 +399,7 @@
   }
   function start() {
     ensureAudio();
+    clearSave();
     reset();
     state = 'playing';
     setOverlay('', '', '', false);
@@ -374,6 +410,7 @@
     setOverlay('达成 2048！🎉', '太厉害了！可以继续玩，冲击更高分', '继续游戏', true);
   }
   function gameOver() {
+    clearSave();
     state = 'over';
     sfx.over();
     setOverlay('游戏结束', '本局得分 <b>' + score + '</b><br/>最高分 <b>' + best + '</b>', '再来一局', true);
@@ -439,7 +476,17 @@
   }
   reset();
   layout();
-  setOverlay('2048', '合并相同数字，合成 <b>2048</b> 方块！<br/>方向键 / 滑动屏幕操作', '开始游戏', true);
+  var saved2048 = loadSave();
+  if (saved2048) {
+    setOverlay('检测到存档', '上次玩到一半，是否继续？<br/>最高分 <b>' + best + '</b>', '放弃存档，新游戏', true);
+    var resumeBtn = document.createElement('button');
+    resumeBtn.textContent = '继续上次游戏';
+    resumeBtn.style.cssText = 'background:linear-gradient(90deg,var(--accent),#22c1a8);color:#062a24;font-size:18px;font-weight:700;border:none;padding:12px 36px;border-radius:999px;cursor:pointer;';
+    startBtn.parentNode.insertBefore(resumeBtn, startBtn.nextSibling);
+    resumeBtn.addEventListener('click', function () { resumeBtn.remove(); restoreGame(saved2048); });
+  } else {
+    setOverlay('2048', '合并相同数字，合成 <b>2048</b> 方块！<br/>方向键 / 滑动屏幕操作', '开始游戏', true);
+  }
 
   // debug hook (read-only, harmless)
   window.__g2048 = {

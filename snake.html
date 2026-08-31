@@ -136,7 +136,8 @@
   const COLS = 28, ROWS = 28;
   const BASE_STEP = 145, MIN_STEP = 60, SPEED_DOWN = 3;
   const APPLE_PTS = 10, GOLDEN_PTS = 30, GOLDEN_LIFE = 8000, GOLDEN_CHANCE = 0.22;
-  const BEST_KEY = 'snake.best.v1', MUTE_KEY = 'snake.muted.v1';
+  const BEST_KEY = 'snake.best.v1'
+  const SAVE_KEY = 'snake.save.v1', MUTE_KEY = 'snake.muted.v1';
 
   let dpr = 1, cssW = 400, pad = 18, board = 364, cell = board / COLS;
   let state = 'idle';
@@ -231,6 +232,42 @@
     spawnApple();
   }
 
+  // ---------- save ----------
+  let saveTimer = null;
+  function queueSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 400);
+  }
+  function saveNow() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        v: 1,
+        snake: snake, dir: dir, queued: queued, apple: apple,
+        golden: golden ? { x: golden.x, y: golden.y, lifeLeft: Math.max(0, golden.born + GOLDEN_LIFE - Date.now()) } : null,
+        score: score, foodsEaten: foodsEaten, stepMs: stepMs, ts: Date.now()
+      }));
+    } catch (e) {}
+  }
+  function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function loadSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } }
+  window.addEventListener('pagehide', saveNow);
+  function restoreGame(data) {
+    snake = data.snake;
+    prev = snake.map(function (p) { return { x: p.x, y: p.y }; });
+    dir = data.dir; queued = data.queued;
+    apple = data.apple ? { x: data.apple.x, y: data.apple.y } : null;
+    golden = null;
+    if (data.golden && data.golden.lifeLeft > 0) golden = { x: data.golden.x, y: data.golden.y, born: Date.now() - (GOLDEN_LIFE - data.golden.lifeLeft) };
+    score = data.score || 0;
+    foodsEaten = data.foodsEaten || 0;
+    stepMs = data.stepMs || BASE_STEP;
+    scoreEl.textContent = score;
+    state = 'playing';
+    timer = 0; t = 0;
+    setOverlay('', '', '', false);
+  }
+
   // ---------- flow ----------
   function setOverlay(title, sub, btn, show) {
     ovTitle.textContent = title;
@@ -241,6 +278,7 @@
 
   function start() {
     ensureAudio();
+    clearSave();
     reset();
     state = 'playing';
     setOverlay('', '', '', false);
@@ -257,6 +295,7 @@
     setOverlay('', '', '', false);
   }
   function gameOver() {
+    clearSave();
     state = 'over';
     sfx.die();
     shake = 10; flash = 1;
@@ -363,6 +402,7 @@
       timer -= stepMs;
       step();
       if (state !== 'playing') return;
+      queueSave();
     }
     t = Math.min(1, timer / stepMs);
   }
@@ -606,9 +646,19 @@
   muteBtn.textContent = muted ? '🔇' : '🔊';
   resize();
   reset();
-  setOverlay('贪吃蛇',
-    '吃掉红色苹果得 <b>10</b> 分，金色星星得 <b>30</b> 分（限时出现）<br/>越吃越快，别撞墙也别咬到自己',
-    '开始游戏', true);
+  var savedSnake = loadSave();
+  if (savedSnake) {
+    setOverlay('检测到存档', '上次玩到一半，是否继续？<br/>最高分 <b>' + best + '</b>', '放弃存档，新游戏', true);
+    var resumeBtn = document.createElement('button');
+    resumeBtn.textContent = '继续上次游戏';
+    resumeBtn.style.cssText = 'background:linear-gradient(90deg,var(--accent),#22c1a8);color:#062a24;font-size:18px;font-weight:700;border:none;padding:12px 36px;border-radius:999px;cursor:pointer;';
+    startBtn.parentNode.insertBefore(resumeBtn, startBtn.nextSibling);
+    resumeBtn.addEventListener('click', function () { resumeBtn.remove(); restoreGame(savedSnake); });
+  } else {
+    setOverlay('贪吃蛇',
+      '吃掉红色苹果得 <b>10</b> 分，金色星星得 <b>30</b> 分（限时出现）<br/>越吃越快，别撞墙也别咬到自己',
+      '开始游戏', true);
+  }
   last = performance.now();
   raf = requestAnimationFrame(loop);
 })();

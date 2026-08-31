@@ -88,7 +88,8 @@
   var shuffleBtn = document.getElementById('shuffle-btn');
 
   var COLS = 8, ROWS = 8, TYPES = 5;
-  var BEST_KEY = 'xxl.best.v1', MUTE_KEY = 'game2048.muted.v1';
+  var BEST_KEY = 'xxl.best.v1'
+  var SAVE_KEY = 'xxl.save.v1', MUTE_KEY = 'game2048.muted.v1';
   var dpr = 1, cssW = 400, cell = 50;
 
   var board = [];          // [r][c] piece or null
@@ -237,6 +238,7 @@
     if (!p1 || !p2) return;
     if (Math.abs(r1 - r2) + Math.abs(c1 - c2) !== 1) return;
     ensureAudio();
+    dirty = true;
     lastSwap = { p1: p1, p2: p2, r1: r1, c1: c1, r2: r2, c2: c2 };
     board[r1][c1] = p2; board[r2][c2] = p1;
     p1.row = r2; p1.col = c2; p2.row = r1; p2.col = c1;
@@ -313,6 +315,7 @@
     } else {
       combo = 0;
       phase = 'idle';
+      dirty = true;
       if (!hasAnyMove()) {
         shuffleBoard(true);
       }
@@ -323,6 +326,7 @@
   function shuffleBoard(quiet) {
     ensureAudio();
     if (!quiet) sfx.shuffle();
+    dirty = true;
     initBoard();
     if (!hasAnyMove()) shuffleBoard(true);
   }
@@ -347,11 +351,41 @@
     }
   }
 
+  // ---------- save ----------
+  var saveTimer = null, dirty = false;
+  function queueSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 400);
+  }
+  function saveNow() {
+    try {
+      var b = [];
+      for (var r = 0; r < ROWS; r++) { b.push([]); for (var c = 0; c < COLS; c++) b[r].push(board[r][c] ? board[r][c].type : -1); }
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ v: 1, board: b, score: score, best: best, ts: Date.now() }));
+    } catch (e) {}
+  }
+  function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function loadSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } }
+  window.addEventListener('pagehide', saveNow);
+  function restoreGame(data) {
+    board = [];
+    for (var r = 0; r < ROWS; r++) {
+      board.push([]);
+      for (var c = 0; c < COLS; c++) board[r].push(new Piece(data.board[r][c], r, c));
+    }
+    score = data.score || 0; scoreEl.textContent = score;
+    if (data.best > best) { best = data.best; bestEl.textContent = best; }
+    combo = 0; sel = null; phase = 'idle'; particles = []; floats = [];
+    setOverlay('', '', '', false);
+  }
+
   // ---------- update ----------
   function easeInOut(k) { return k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; }
   function easeIn(k) { return 1 - Math.pow(1 - k, 3); }
 
   function update(dt) {
+    if (phase === 'idle' && dirty) { dirty = false; queueSave(); }
     // particles
     for (var i = particles.length - 1; i >= 0; i--) {
       var pt = particles[i];
@@ -634,6 +668,7 @@
   }
   function start() {
     ensureAudio();
+    clearSave();
     shuffleBoard(true);
     score = 0; scoreEl.textContent = '0';
     phase = 'idle';
@@ -660,7 +695,17 @@
   // ---------- boot ----------
   resize();
   shuffleBoard(true);
-  setOverlay('消消乐', '交换相邻糖果，凑齐 <b>3 个及以上</b>同色即可消除<br/>连击有额外加分！点击 / 滑动交换', '开始游戏', true);
+  var savedXxl = loadSave();
+  if (savedXxl) {
+    setOverlay('检测到存档', '上次玩到一半，是否继续？<br/>最高分 <b>' + best + '</b>', '放弃存档，新游戏', true);
+    var resumeBtn = document.createElement('button');
+    resumeBtn.textContent = '继续上次游戏';
+    resumeBtn.style.cssText = 'background:linear-gradient(90deg,var(--accent),#22c1a8);color:#062a24;font-size:18px;font-weight:700;border:none;padding:12px 36px;border-radius:999px;cursor:pointer;';
+    startBtn.parentNode.insertBefore(resumeBtn, startBtn.nextSibling);
+    resumeBtn.addEventListener('click', function () { resumeBtn.remove(); restoreGame(savedXxl); });
+  } else {
+    setOverlay('消消乐', '交换相邻糖果，凑齐 <b>3 个及以上</b>同色即可消除<br/>连击有额外加分！点击 / 滑动交换', '开始游戏', true);
+  }
   last = performance.now();
   raf = requestAnimationFrame(loop);
 })();

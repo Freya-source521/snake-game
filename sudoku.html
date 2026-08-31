@@ -97,6 +97,7 @@
 
   var SIZE = 12, BOX_H = 3, BOX_W = 4;
   var GIVENS = { easy: 62, medium: 50, hard: 46 };
+  var SAVE_KEY = 'sudoku.save.v1';
 
   var boardEl = document.getElementById('board');
   var padEl = document.getElementById('pad');
@@ -286,7 +287,52 @@
   }
 
   // ---------- game ----------
+  // ---------- save ----------
+  var saveTimer = null;
+  function queueSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 400);
+  }
+  function saveNow() {
+    try {
+      var n = [];
+      for (var r = 0; r < SIZE; r++) { n.push([]); for (var c = 0; c < SIZE; c++) n[r].push(Array.from(notes[r][c])); }
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        v: 1, difficulty: difficulty, solution: solution, puzzle: puzzle, current: current, notes: n,
+        timerSec: timerSec, started: started, ts: Date.now()
+      }));
+    } catch (e) {}
+  }
+  function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function loadSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } }
+  window.addEventListener('pagehide', saveNow);
+  function fmtTime(s) {
+    var m = Math.floor(s / 60), ss = s % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (ss < 10 ? '0' : '') + ss;
+  }
+  function restoreGame(data) {
+    difficulty = data.difficulty || 'medium';
+    diffSel.value = difficulty;
+    solution = data.solution;
+    puzzle = data.puzzle;
+    current = data.current;
+    notes = [];
+    for (var r = 0; r < SIZE; r++) { notes.push([]); for (var c = 0; c < SIZE; c++) notes[r].push(new Set(data.notes[r][c])); }
+    timerSec = data.timerSec || 0;
+    started = !!data.started;
+    timerEl.textContent = fmtTime(timerSec);
+    if (timerId) { clearInterval(timerId); timerId = null; }
+    if (started && timerSec >= 0) startTimer();
+    undoStack = [];
+    selected = null;
+    renderAll();
+    overlay.classList.add('hidden');
+    ovBtn.disabled = false;
+  }
+
   function newGame() {
+    clearSave();
     overlay.classList.remove('hidden');
     ovTitle.textContent = '生成谜题中…';
     ovSub.textContent = difficulty === 'easy' ? '简单' : (difficulty === 'medium' ? '中等' : '困难') + '难度 · 请稍候';
@@ -328,6 +374,7 @@
         current[r][c] = 0;
         notes[r][c].clear();
         renderAll();
+        queueSave();
       }
       return;
     }
@@ -342,6 +389,7 @@
       if (checkWin()) win();
     }
     renderAll();
+    queueSave();
   }
 
   function pushUndo(r, c) {
@@ -356,6 +404,7 @@
     notes[u.r][u.c] = u.notes;
     selected = { r: u.r, c: u.c };
     renderAll();
+    queueSave();
   }
 
   function hint() {
@@ -374,6 +423,7 @@
     selected = { r: r, c: c };
     startTimer();
     renderAll();
+    queueSave();
     if (checkWin()) win();
   }
 
@@ -385,6 +435,7 @@
   }
 
   function win() {
+    clearSave();
     if (timerId) clearInterval(timerId);
     overlay.classList.remove('hidden');
     ovTitle.textContent = '🎉 完成！';
@@ -549,7 +600,19 @@
   // ---------- boot ----------
   buildBoard();
   buildPad();
-  newGame();
+  var savedSudoku = loadSave();
+  if (savedSudoku) {
+    ovTitle.textContent = '检测到存档';
+    ovSub.innerHTML = '上次玩到一半，是否继续？<br/>难度 ' + (savedSudoku.difficulty === 'easy' ? '简单' : savedSudoku.difficulty === 'medium' ? '中等' : '困难') + ' · 用时 <b>' + fmtTime(savedSudoku.timerSec || 0) + '</b>';
+    ovBtn.textContent = '放弃存档，新游戏';
+    var resumeBtn = document.createElement('button');
+    resumeBtn.textContent = '继续上次游戏';
+    resumeBtn.style.cssText = 'background:linear-gradient(90deg,var(--accent),#22c1a8);color:#062a24;font-size:15px;font-weight:700;border:none;padding:10px 24px;border-radius:999px;cursor:pointer;';
+    ovBtn.parentNode.insertBefore(resumeBtn, ovBtn.nextSibling);
+    resumeBtn.addEventListener('click', function () { resumeBtn.remove(); restoreGame(savedSudoku); });
+  } else {
+    newGame();
+  }
 
   // debug hook (read-only, harmless)
   window.__sudoku = {

@@ -114,7 +114,8 @@
   var startBtn = document.getElementById('start-btn');
 
   var COLS = 12, ROWS = 24;
-  var BEST_KEY = 'tetris.best.v1', MUTE_KEY = 'game2048.muted.v1';
+  var BEST_KEY = 'tetris.best.v1'
+  var SAVE_KEY = 'tetris.save.v1', MUTE_KEY = 'game2048.muted.v1';
   var dpr = 1, cssW = 300, cell = 30;
 
   var SHAPES = {
@@ -232,6 +233,7 @@
       return;
     }
     drawNext(); drawHold();
+    queueSave();
   }
 
   function dropDistance() {
@@ -246,6 +248,7 @@
       active.x += dx; active.y += dy;
       if (dy > 0) { addScore(1); sfx.move(); }
       else if (dx !== 0) sfx.move();
+      queueSave();
       return true;
     }
     return false;
@@ -259,6 +262,7 @@
       if (!collides(active.type, nr, active.x + kicks[i], active.y)) {
         active.rot = nr; active.x += kicks[i];
         sfx.rotate();
+        queueSave();
         return;
       }
     }
@@ -338,6 +342,7 @@
     canHold = false;
     sfx.hold();
     drawHold();
+    queueSave();
   }
 
   function addScore(n) {
@@ -363,6 +368,7 @@
   }
   function start() {
     ensureAudio();
+    clearSave();
     initBoard();
     queue = []; holdType = null; canHold = true;
     score = 0; lines = 0; level = 1; dropTimer = 0;
@@ -382,9 +388,47 @@
     setOverlay('', '', '', false);
   }
   function gameOver() {
+    clearSave();
     state = 'over';
     sfx.over();
     setOverlay('游戏结束', '本局得分 <b>' + score + '</b><br/>最高分 <b>' + best + '</b>', '再来一局', true);
+  }
+
+  // ---------- save ----------
+  var saveTimer = null;
+  function queueSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 400);
+  }
+  function saveNow() {
+    try {
+      if (state === 'clearing') return;
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        v: 1, board: board, score: score, lines: lines, level: level,
+        queue: queue, holdType: holdType, canHold: canHold,
+        active: active ? { type: active.type, rot: active.rot, x: active.x, y: active.y } : null,
+        ts: Date.now()
+      }));
+    } catch (e) {}
+  }
+  function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function loadSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } }
+  window.addEventListener('pagehide', saveNow);
+  function restoreGame(data) {
+    initBoard();
+    for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) board[r][c] = data.board[r][c];
+    score = data.score || 0; lines = data.lines || 0; level = data.level || 1;
+    scoreEl.textContent = score; linesEl.textContent = lines; levelEl.textContent = level;
+    queue = data.queue || []; fillQueue();
+    holdType = data.holdType || null;
+    canHold = data.canHold !== false;
+    if (data.active) active = { type: data.active.type, rot: data.active.rot, x: data.active.x, y: data.active.y };
+    else { active = null; spawn(); }
+    dropTimer = 0;
+    state = 'playing';
+    drawNext(); drawHold();
+    setOverlay('', '', '', false);
   }
 
   // ---------- update ----------
@@ -572,7 +616,17 @@
   initBoard();
   fillQueue();
   drawNext(); drawHold();
-  setOverlay('俄罗斯方块', '消除整行得分，行数越多等级越高、下落越快<br/>方向键 / 手机按钮操作', '开始游戏', true);
+  var savedTetris = loadSave();
+  if (savedTetris) {
+    setOverlay('检测到存档', '上次玩到一半，是否继续？<br/>最高分 <b>' + best + '</b>', '放弃存档，新游戏', true);
+    var resumeBtn = document.createElement('button');
+    resumeBtn.textContent = '继续上次游戏';
+    resumeBtn.style.cssText = 'background:linear-gradient(90deg,var(--accent),#22c1a8);color:#062a24;font-size:18px;font-weight:700;border:none;padding:12px 36px;border-radius:999px;cursor:pointer;';
+    startBtn.parentNode.insertBefore(resumeBtn, startBtn.nextSibling);
+    resumeBtn.addEventListener('click', function () { resumeBtn.remove(); restoreGame(savedTetris); });
+  } else {
+    setOverlay('俄罗斯方块', '消除整行得分，行数越多等级越高、下落越快<br/>方向键 / 手机按钮操作', '开始游戏', true);
+  }
   last = performance.now();
   raf = requestAnimationFrame(loop);
   // debug hook (read-only, harmless)
