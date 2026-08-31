@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>小游戏合集 · 贪吃蛇 2048 消消乐 俄罗斯方块</title>
+<title>小游戏合集 · 贪吃蛇 2048 消消乐 俄罗斯方块 数独</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='8' width='84' height='84' rx='20' fill='%230b0e1a' stroke='%2338f0d0' stroke-width='6'/><text x='50' y='68' font-size='40' text-anchor='middle'>🎮</text></svg>" />
 <style>
   :root {
@@ -25,7 +25,7 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
   .sub { color: var(--muted); font-size: 14px; letter-spacing: 1px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; width: 100%; max-width: 1000px; margin-top: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 18px; width: 100%; max-width: 1080px; margin-top: 8px; }
   a.card {
     text-decoration: none; color: var(--text);
     background: var(--panel); border: 1px solid var(--border);
@@ -39,6 +39,7 @@
   .c-2048 { background: linear-gradient(135deg, #1e5ac2, #38b6ff); }
   .c-xxl { background: linear-gradient(135deg, #e04f62, #ff9a5e); }
   .c-tetris { background: linear-gradient(135deg, #8a5cf6, #38b6ff); }
+  .c-sudoku { background: linear-gradient(135deg, #1f9d8f, #7c6bff); }
   .name { font-size: 22px; font-weight: 800; letter-spacing: 2px; }
   .desc { color: var(--muted); font-size: 13px; line-height: 1.8; min-height: 47px; }
   .go { font-size: 13px; color: var(--accent); font-weight: 700; letter-spacing: 2px; }
@@ -47,7 +48,7 @@
 </head>
 <body>
   <h1>🎮 小游戏合集</h1>
-  <div class="sub">贪吃蛇 · 2048 · 消消乐 · 俄罗斯方块 —— 选择一个开始玩吧</div>
+  <div class="sub">贪吃蛇 · 2048 · 消消乐 · 俄罗斯方块 · 数独 —— 选择一个开始玩吧</div>
   <div class="grid">
     <a class="card" href="./snake.html">
       <div class="icon c-snake">🐍</div>
@@ -71,6 +72,12 @@
       <div class="icon c-tetris">🧱</div>
       <div class="name">俄罗斯方块</div>
       <div class="desc">消除整行得分，等级越高落得越快<br/>支持暂存与幽灵投影</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+    <a class="card" href="./sudoku.html">
+      <div class="icon c-sudoku">🧩</div>
+      <div class="name">数独</div>
+      <div class="desc">12×12 大棋盘 · 数字 1-12<br/>三档难度 · 笔记 · 计时</div>
       <div class="go">开始游戏 →</div>
     </a>
   </div>
