@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>五子棋</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='10' width='80' height='80' rx='14' fill='%230d1226' stroke='%2338f0d0' stroke-width='4'/><circle cx='40' cy='40' r='14' fill='%230b0e1a' stroke='%23e8ecff' stroke-width='3'/><circle cx='60' cy='60' r='14' fill='%23e8ecff'/></svg>" />
+<style>
+  :root {
+    --bg: #0b0e1a; --panel: rgba(255,255,255,0.06); --border: rgba(255,255,255,0.12);
+    --accent: #38f0d0; --accent2: #7c6bff; --text: #e8ecff; --muted: #8a92b8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1200px 800px at 50% 20%, #141a33 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    min-height: 100%; padding: 10px 8px 14px; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  a.home { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    text-decoration: none; border-radius: 10px; padding: 7px 12px; font-size: 13px; }
+  .hud { background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 7px 12px; font-size: 14px; display: flex; align-items: center; gap: 6px; min-width: 96px; justify-content: center; }
+  .btn { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 7px 12px; cursor: pointer; font-size: 13px; }
+  .btn:hover { background: rgba(255,255,255,0.1); }
+  select { background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 10px; padding: 7px 8px; font-size: 13px; cursor: pointer; }
+  select option { background: #141a33; }
+  #wrap { position: relative; }
+  canvas { width: min(92vmin, 560px); aspect-ratio: 1/1; background: #0d1226;
+    border-radius: 14px; border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0,0,0,.5); display: block; touch-action: none; }
+  .saved-tip { color: var(--muted); font-size: 11px; }
+  #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: rgba(8,10,22,0.85); backdrop-filter: blur(5px); z-index: 20; }
+  #overlay.hidden { display: none; }
+  #overlay .box { background: #141a33; border: 1px solid var(--border); border-radius: 18px;
+    padding: 26px 34px; text-align: center; display: flex; flex-direction: column; gap: 12px; align-items: center; max-width: 92vw; }
+  #overlay h2 { font-size: 30px; letter-spacing: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  #overlay p { color: var(--muted); font-size: 14px; line-height: 1.8; }
+  #overlay p b { color: var(--accent); }
+  #overlay .btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  #overlay button { background: linear-gradient(90deg, var(--accent), #22c1a8); color: #062a24;
+    font-size: 15px; font-weight: 700; border: none; padding: 10px 24px; border-radius: 999px; cursor: pointer; }
+  #overlay button.ghost { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+  footer { color: var(--muted); font-size: 12px; }
+</style>
+</head>
+<body>
+  <header>
+    <a class="home" href="./">🏠 返回主页</a>
+    <div class="hud" id="turn">⚫ 黑方</div>
+    <select id="mode">
+      <option value="pvp">双人对战</option>
+      <option value="ai" selected>人机对战</option>
+    </select>
+    <button class="btn" id="undo-btn">↩ 悔棋</button>
+    <button class="btn" id="new-btn">🔄 新局</button>
+  </header>
+  <div id="wrap">
+    <canvas id="game"></canvas>
+    <div class="saved-tip">💾 自动存档 · 关闭页面后回来可继续</div>
+  </div>
+  <footer>五子连珠即胜 · 点击棋盘落子 · 黑方先手</footer>
+  <div id="overlay"><div class="box"><h2 id="ov-title">五子棋</h2><p id="ov-sub">五子连成一线即获胜<br/>双人对战 / 人机对战</p><div class="btns"><button id="ov-btn">开始游戏</button></div></div></div>
+  <script>
+(function () {
+  'use strict';
+
+  var SIZE = 15;
+  var SAVE_KEY = 'gomoku.save.v1';
+
+  var canvas = document.getElementById('game');
+  var ctx = canvas.getContext('2d');
+  var turnEl = document.getElementById('turn');
+  var modeSel = document.getElementById('mode');
+  var undoBtn = document.getElementById('undo-btn');
+  var newBtn = document.getElementById('new-btn');
+  var overlay = document.getElementById('overlay');
+  var ovTitle = document.getElementById('ov-title');
+  var ovSub = document.getElementById('ov-sub');
+  var ovBtn = document.getElementById('ov-btn');
+
+  var dpr = 1, cssW = 400, cell = 25, margin = 12;
+  var board = [];        // 0 empty, 1 black, 2 white
+  var history = [];      // [{r,c,color}]
+  var current = 1;       // 1 black, 2 white
+  var mode = 'ai';
+  var over = false;
+  var lastMove = null;
+  var aiThinking = false;
+
+  // ---------- save ----------
+  var saveTimer = null;
+  function queueSave() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveNow, 400);
+  }
+  function saveNow() {
+    try {
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        v: 1, board: board, history: history, current: current, mode: mode,
+        lastMove: lastMove, over: over, ts: Date.now()
+      }));
+    } catch (e) {}
+  }
+  function hasSave() { try { return !!localStorage.getItem(SAVE_KEY); } catch (e) { return false; } }
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function loadSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY)); } catch (e) { return null; } }
+  window.addEventListener('pagehide', saveNow);
+
+  // ---------- board ----------
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cssW = canvas.clientWidth;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssW * dpr);
+    cell = cssW / (SIZE + 1);
+    margin = cell;
+  }
+
+  function reset() {
+    board = [];
+    for (var r = 0; r < SIZE; r++) { board.push([]); for (var c = 0; c < SIZE; c++) board[r].push(0); }
+    history = [];
+    current = 1;
+    over = false;
+    lastMove = null;
+    aiThinking = false;
+    updateTurn();
+    draw();
+  }
+
+  function newGame() {
+    clearSave();
+    mode = modeSel.value;
+    reset();
+    hideOverlay();
+  }
+
+  function cellFromEvent(e) {
+    var rect = canvas.getBoundingClientRect();
+    var x = e.clientX - rect.left, y = e.clientY - rect.top;
+    var c = Math.round((x - margin) / cell), r = Math.round((y - margin) / cell);
+    if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return null;
+    if (Math.abs((x - margin) / cell - c) > 0.45 || Math.abs((y - margin) / cell - r) > 0.45) return null;
+    return { r: r, c: c };
+  }
+
+  function placeStone(r, c, color) {
+    if (board[r][c] !== 0 || over) return false;
+    board[r][c] = color;
+    history.push({ r: r, c: c, color: color });
+    lastMove = { r: r, c: c };
+    if (checkWin(r, c, color)) {
+      over = true;
+      queueSave();
+      showWin(color);
+      return true;
+    }
+    if (isFull()) {
+      over = true;
+      queueSave();
+      showDraw();
+      return true;
+    }
+    current = color === 1 ? 2 : 1;
+    updateTurn();
+    draw();
+    queueSave();
+    return true;
+  }
+
+  function undo() {
+    if (over) return;
+    if (!history.length) return;
+    if (mode === 'ai' && history.length >= 2) {
+      var m1 = history.pop(), m2 = history.pop();
+      board[m1.r][m1.c] = 0; board[m2.r][m2.c] = 0;
+      lastMove = history.length ? history[history.length - 1] : null;
+      current = 1;
+    } else {
+      var m = history.pop();
+      board[m.r][m.c] = 0;
+      lastMove = history.length ? history[history.length - 1] : null;
+      current = m.color;
+    }
+    updateTurn();
+    draw();
+    queueSave();
+  }
+
+  // ---------- win check ----------
+  function checkWin(r, c, color) {
+    var dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+    for (var d = 0; d < dirs.length; d++) {
+      var count = 1;
+      var dr = dirs[d][0], dc = dirs[d][1];
+      for (var s = 1; s <= 4; s++) {
+        var rr = r + dr * s, cc = c + dc * s;
+        if (rr >= 0 && rr < SIZE && cc >= 0 && cc < SIZE && board[rr][cc] === color) count++;
+        else break;
+      }
+      for (var s2 = 1; s2 <= 4; s2++) {
+        var rr2 = r - dr * s2, cc2 = c - dc * s2;
+        if (rr2 >= 0 && rr2 < SIZE && cc2 >= 0 && cc2 < SIZE && board[rr2][cc2] === color) count++;
+        else break;
+      }
+      if (count >= 5) return true;
+    }
+    return false;
+  }
+
+  function isFull() {
+    for (var r = 0; r < SIZE; r++) for (var c = 0; c < SIZE; c++) if (!board[r][c]) return false;
+    return true;
+  }
+
+  // ---------- AI ----------
+  function aiMove() {
+    if (over || aiThinking) return;
+    var candidates = [];
+    for (var r = 0; r < SIZE; r++) {
+      for (var c = 0; c < SIZE; c++) {
+        if (board[r][c] !== 0) continue;
+        if (nearStones(r, c)) candidates.push([r, c]);
+      }
+    }
+    if (!candidates.length) {
+      // empty board first move: center
+      candidates.push([7, 7]);
+    }
+    var aiColor = 2, humanColor = 1;
+    var best = null, bestScore = -1;
+    for (var i = 0; i < candidates.length; i++) {
+      var r = candidates[i][0], c = candidates[i][1];
+      var off = scoreAt(r, c, aiColor);
+      var def = scoreAt(r, c, humanColor);
+      var total = off + def * 0.9;
+      if (total > bestScore) { bestScore = total; best = candidates[i]; }
+    }
+    if (!best) return;
+    aiThinking = true;
+    var br = best[0], bc = best[1];
+    setTimeout(function () {
+      aiThinking = false;
+      placeStone(br, bc, 2);
+    }, 180);
+  }
+
+  function nearStones(r, c) {
+    for (var dr = -2; dr <= 2; dr++) {
+      for (var dc = -2; dc <= 2; dc++) {
+        var rr = r + dr, cc = c + dc;
+        if (rr >= 0 && rr < SIZE && cc >= 0 && cc < SIZE && board[rr][cc] !== 0) return true;
+      }
+    }
+    return false;
+  }
+
+  function scoreAt(r, c, color) {
+    // temporarily place
+    board[r][c] = color;
+    var score = 0;
+    var dirs = [[1, 0], [0, 1], [1, 1], [1, -1]];
+    for (var d = 0; d < dirs.length; d++) {
+      var dr = dirs[d][0], dc = dirs[d][1];
+      var count = 1;
+      var openL = 0, openR = 0;
+      for (var s = 1; s <= 5; s++) {
+        var rr = r + dr * s, cc = c + dc * s;
+        if (rr < 0 || rr >= SIZE || cc < 0 || cc >= SIZE) break;
+        if (board[rr][cc] === color) count++;
+        else if (board[rr][cc] === 0) { openR = 1; break; }
+        else break;
+      }
+      for (var s2 = 1; s2 <= 5; s2++) {
+        var rr2 = r - dr * s2, cc2 = c - dc * s2;
+        if (rr2 < 0 || rr2 >= SIZE || cc2 < 0 || cc2 >= SIZE) break;
+        if (board[rr2][cc2] === color) count++;
+        else if (board[rr2][cc2] === 0) { openL = 1; break; }
+        else break;
+      }
+      var open = openL + openR;
+      score += patternScore(count, open);
+    }
+    board[r][c] = 0;
+    return score;
+  }
+
+  function patternScore(count, open) {
+    if (count >= 5) return 1000000;
+    if (count === 4) return open === 2 ? 500000 : 100000;
+    if (count === 3) return open === 2 ? 50000 : open === 1 ? 5000 : 0;
+    if (count === 2) return open === 2 ? 500 : open === 1 ? 50 : 0;
+    if (count === 1) return open === 2 ? 10 : 0;
+    return 0;
+  }
+
+  // ---------- draw ----------
+  function draw() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssW);
+    ctx.fillStyle = '#0d1226';
+    ctx.fillRect(0, 0, cssW, cssW);
+    // grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 1;
+    for (var i = 0; i < SIZE; i++) {
+      ctx.beginPath();
+      ctx.moveTo(margin + i * cell, margin);
+      ctx.lineTo(margin + i * cell, margin + (SIZE - 1) * cell);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(margin, margin + i * cell);
+      ctx.lineTo(margin + (SIZE - 1) * cell, margin + i * cell);
+      ctx.stroke();
+    }
+    // star points
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    var stars = [[3, 3], [3, 11], [11, 3], [11, 11], [7, 7]];
+    for (var s = 0; s < stars.length; s++) {
+      ctx.beginPath();
+      ctx.arc(margin + stars[s][0] * cell, margin + stars[s][1] * cell, cell * 0.12, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // stones
+    for (var r = 0; r < SIZE; r++) {
+      for (var c = 0; c < SIZE; c++) {
+        if (board[r][c]) drawStone(margin + c * cell, margin + r * cell, board[r][c], r === lastMove.r && c === lastMove.c);
+      }
+    }
+  }
+
+  function drawStone(x, y, color, isLast) {
+    var rad = cell * 0.42;
+    ctx.save();
+    if (isLast) {
+      ctx.shadowColor = color === 1 ? 'rgba(180,200,255,0.9)' : 'rgba(56,240,208,0.9)';
+      ctx.shadowBlur = 14;
+    }
+    var g = ctx.createRadialGradient(x - rad * 0.35, y - rad * 0.35, rad * 0.15, x, y, rad);
+    if (color === 1) {
+      g.addColorStop(0, '#4a5272');
+      g.addColorStop(0.5, '#141827');
+      g.addColorStop(1, '#05070d');
+    } else {
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(0.6, '#d9e2ff');
+      g.addColorStop(1, '#8a92b8');
+    }
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    if (isLast) {
+      ctx.strokeStyle = 'rgba(255,80,80,0.9)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, rad + 3, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function updateTurn() {
+    if (over) return;
+    turnEl.textContent = current === 1 ? '⚫ 黑方' : '⚪ 白方';
+    if (mode === 'ai' && current === 2) turnEl.textContent = '⚪ 电脑';
+  }
+
+  // ---------- overlay ----------
+  function showOverlay(title, sub, btn, isGhost) {
+    ovTitle.textContent = title;
+    ovSub.innerHTML = sub;
+    ovBtn.textContent = btn;
+    ovBtn.className = isGhost ? 'ghost' : '';
+    overlay.classList.remove('hidden');
+  }
+  function hideOverlay() { overlay.classList.add('hidden'); }
+
+  function showWin(color) {
+    var name = color === 1 ? '⚫ 黑方' : '⚪ 白方';
+    if (mode === 'ai') name = color === 1 ? '🎉 你赢了！' : '🤖 电脑获胜';
+    showOverlay(name, '本局共 <b>' + history.length + '</b> 手', '再来一局', false);
+    queueSave();
+  }
+  function showDraw() {
+    showOverlay('🤝 平局', '棋盘已满，势均力敌！', '再来一局', false);
+    queueSave();
+  }
+
+  // ---------- input ----------
+  canvas.addEventListener('pointerdown', function (e) {
+    if (over) return;
+    if (mode === 'ai' && current === 2) return;
+    var p = cellFromEvent(e);
+    if (!p) return;
+    placeStone(p.r, p.c, current);
+  });
+
+  // ---------- events ----------
+  modeSel.addEventListener('change', function () {
+    newGame();
+  });
+  undoBtn.addEventListener('click', function () {
+    if (overlay.classList.contains('hidden')) undo();
+  });
+  newBtn.addEventListener('click', function () {
+    if (!overlay.classList.contains('hidden')) { hideOverlay(); }
+    newGame();
+  });
+  ovBtn.addEventListener('click', function () { newGame(); });
+  window.addEventListener('resize', function () { resize(); draw(); });
+
+  // ---------- restore ----------
+  function restoreGame(data) {
+    board = data.board;
+    history = data.history || [];
+    current = data.current || 1;
+    mode = data.mode === 'pvp' ? 'pvp' : 'ai';
+    modeSel.value = mode;
+    lastMove = data.lastMove || null;
+    over = !!data.over;
+    aiThinking = false;
+    updateTurn();
+    draw();
+    hideOverlay();
+  }
+
+  // ---------- loop (for AI) ----------
+  setInterval(function () {
+    if (mode === 'ai' && !over && current === 2 && !aiThinking) aiMove();
+  }, 300);
+
+  // ---------- boot ----------
+  resize();
+  var saved = loadSave();
+  if (saved) {
+    reset();
+    showOverlay('检测到存档', '上次下到一半，是否继续？<br/>' + (saved.current === 1 ? '轮到 ⚫ 黑方' : '轮到 ⚪ 白方'),
+      '放弃存档，新局', true);
+    var resumeBtn = document.createElement('button');
+    resumeBtn.textContent = '继续上次棋局';
+    resumeBtn.style.background = 'linear-gradient(90deg, var(--accent), #22c1a8)';
+    ovBtn.parentNode.insertBefore(resumeBtn, ovBtn.nextSibling);
+    resumeBtn.addEventListener('click', function () { resumeBtn.remove(); restoreGame(saved); });
+  } else {
+    reset();
+    hideOverlay();
+  }
+})();
+  </script>
+</body>
+</html>
