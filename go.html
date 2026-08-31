@@ -297,26 +297,177 @@
     return groups;
   }
 
-  function candidates() {
-    var set = {};
-    var hasAny = false;
-    for (var r = 0; r < N; r++) {
-      for (var c = 0; c < N; c++) {
-        if (board[r][c] !== 0) {
-          hasAny = true;
-          for (var dr = -2; dr <= 2; dr++) {
-            for (var dc = -2; dc <= 2; dc++) {
-              var rr = r + dr, cc = c + dc;
-              if (inB(rr, cc) && board[rr][cc] === 0) set[rr + ',' + cc] = 1;
-            }
-          }
+  // ---------- fast flat-board simulator for MCTS playouts ----------
+  function toFlat(b2) {
+    var f = new Int8Array(N * N);
+    for (var r = 0; r < N; r++) for (var c = 0; c < N; c++) f[r * N + c] = b2[r][c];
+    return f;
+  }
+  function nbrs(i) {
+    var r = Math.floor(i / N), c = i % N, list = [];
+    if (r > 0) list.push(i - N);
+    if (r < N - 1) list.push(i + N);
+    if (c > 0) list.push(i - 1);
+    if (c < N - 1) list.push(i + 1);
+    return list;
+  }
+  function placeFast(f, idx, color) {
+    if (f[idx] !== 0) return false;
+    f[idx] = color;
+    var opp = 3 - color;
+    var seen = {};
+    var stack = [];
+    var nbr = nbrs(idx);
+    for (var i = 0; i < nbr.length; i++) if (f[nbr[i]] === opp && !seen[nbr[i]]) stack.push(nbr[i]);
+    while (stack.length) {
+      var s = stack.pop();
+      if (seen[s]) continue;
+      seen[s] = 1;
+      var group = [s], q = [s], qi = 0;
+      while (qi < q.length) {
+        var p = q[qi++];
+        var pn = nbrs(p);
+        for (var j = 0; j < pn.length; j++) {
+          var nb = pn[j];
+          if (f[nb] === opp && !seen[nb]) { seen[nb] = 1; q.push(nb); }
         }
       }
+      var libs = 0;
+      for (var k = 0; k < group.length; k++) {
+        var kn = nbrs(group[k]);
+        for (var m = 0; m < kn.length; m++) if (f[kn[m]] === 0) libs++;
+      }
+      if (libs === 0) for (var x = 0; x < group.length; x++) f[group[x]] = 0;
     }
-    if (!hasAny) return null; // empty board -> play center
-    var list = [];
-    for (var k in set) list.push(k.split(','));
-    return list;
+    // suicide check for the placed stone's own group
+    var own = 0;
+    var on = nbrs(idx);
+    for (var o = 0; o < on.length; o++) if (f[on[o]] === 0) own++;
+    if (own === 0) { f[idx] = 0; return false; }
+    return true;
+  }
+  function scoreFlat(f) {
+    var owner = new Int8Array(N * N);
+    for (var i = 0; i < N * N; i++) owner[i] = -1;
+    var dist = new Int32Array(N * N);
+    for (var j = 0; j < N * N; j++) dist[j] = 999999;
+    var q = [];
+    for (var k = 0; k < N * N; k++) {
+      if (f[k]) { owner[k] = f[k]; dist[k] = 0; q.push(k); }
+    }
+    var qi = 0;
+    while (qi < q.length) {
+      var p = q[qi++];
+      var pn = nbrs(p);
+      for (var m = 0; m < pn.length; m++) {
+        var nb = pn[m];
+        if (f[nb] === 0 && dist[nb] > dist[p] + 1) { dist[nb] = dist[p] + 1; owner[nb] = owner[p]; q.push(nb); }
+      }
+    }
+    var bs = 0, ws = 0;
+    for (var t = 0; t < N * N; t++) {
+      if (f[t] === 1) bs++;
+      else if (f[t] === 2) ws++;
+      else if (owner[t] === 1) bs++;
+      else if (owner[t] === 2) ws++;
+    }
+    return bs - (ws + KOMI);
+  }
+  function playout(f0, aiColor, maxPly) {
+    var f = f0.slice();
+    var player = 3 - aiColor;
+    var passes = 0;
+    for (var ply = 0; ply < maxPly; ply++) {
+      var empties = [];
+      for (var i = 0; i < N * N; i++) if (f[i] === 0) empties.push(i);
+      if (!empties.length) break;
+      var placed = null, attempts = 0;
+      while (attempts < 10) {
+        var m = empties[(Math.random() * empties.length) | 0];
+        if (placeFast(f, m, player)) { placed = m; break; }
+        attempts++;
+      }
+      if (placed === null) { passes++; if (passes >= 2) break; player = 3 - player; continue; }
+      passes = 0;
+      player = 3 - player;
+    }
+    var s = scoreFlat(f);
+    if (aiColor === 1) return s > 0 ? 1 : 0;
+    return s < 0 ? 1 : 0;
+  }
+  function shuffleArr(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = (Math.random() * (i + 1)) | 0;
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  function nearStoneFlat(f, r, c) {
+    for (var dr = -2; dr <= 2; dr++) {
+      for (var dc = -2; dc <= 2; dc++) {
+        var rr = r + dr, cc = c + dc;
+        if (rr >= 0 && rr < N && cc >= 0 && cc < N && f[rr * N + cc] !== 0) return true;
+      }
+    }
+    return false;
+  }
+
+  function mctsMove(aiColor) {
+    var f0 = toFlat(board);
+    var hasStones = false;
+    for (var t = 0; t < N * N; t++) if (f0[t]) { hasStones = true; break; }
+    if (!hasStones) {
+      var mid = Math.floor(N / 2);
+      tryPlace(mid, mid, aiColor);
+      return;
+    }
+    // root candidates: empty points near stones
+    var cands = [];
+    for (var r = 0; r < N; r++) {
+      for (var c = 0; c < N; c++) {
+        if (f0[r * N + c] === 0 && nearStoneFlat(f0, r, c)) cands.push(r * N + c);
+      }
+    }
+    if (!cands.length) return;
+    if (cands.length > 56) cands = shuffleArr(cands).slice(0, 56);
+    // legality filter via the real simulator
+    var legal = [];
+    for (var k = 0; k < cands.length; k++) {
+      var rr = Math.floor(cands[k] / N), cc = cands[k] % N;
+      var copy = clone(board);
+      var res = simulate(copy, rr, cc, aiColor, prevBoard);
+      if (res.ok) legal.push(cands[k]);
+    }
+    if (!legal.length) return;
+    var budget = N <= 9 ? 500 : N <= 13 ? 320 : 200;
+    var visits = {}, wins = {};
+    var total = 0;
+    for (var it = 0; it < budget; it++) {
+      var bestKey = null, bestUct = -Infinity;
+      for (var d = 0; d < legal.length; d++) {
+        var key = legal[d];
+        var v = visits[key] || 0, w = wins[key] || 0;
+        var uct = v === 0 ? 1000000 : w / v + 1.3 * Math.sqrt(Math.log(total + 1) / v);
+        uct += Math.random() * 0.005;
+        if (uct > bestUct) { bestUct = uct; bestKey = key; }
+      }
+      if (bestKey === null) break;
+      var f1 = f0.slice();
+      if (!placeFast(f1, bestKey, aiColor)) continue;
+      var res2 = playout(f1, aiColor, N <= 9 ? 90 : 70);
+      visits[bestKey] = (visits[bestKey] || 0) + 1;
+      wins[bestKey] = (wins[bestKey] || 0) + res2;
+      total++;
+    }
+    var bestMove = null, bestRate = -1;
+    for (var e = 0; e < legal.length; e++) {
+      var key2 = legal[e];
+      var rate = (wins[key2] || 0) / (visits[key2] || 1);
+      if (rate > bestRate + 1e-9) { bestRate = rate; bestMove = key2; }
+    }
+    if (bestMove === null) bestMove = legal[0];
+    var br = Math.floor(bestMove / N), bc = bestMove % N;
+    tryPlace(br, bc, aiColor);
   }
 
   function aiMove() {
@@ -324,7 +475,7 @@
     var aiColor = 3 - humanColor;
     var opp = humanColor;
 
-    // 1) capture opponent group with 1 liberty
+    // 1) capture opponent atari group (1 liberty)
     var oppGroups = groupsOf(board, opp);
     for (var i = 0; i < oppGroups.length; i++) {
       var libs = libertyCount(board, oppGroups[i]);
@@ -333,7 +484,7 @@
         if (tryPlace(+p[0], +p[1], aiColor)) return;
       }
     }
-    // 2) defend own group with 1 liberty
+    // 2) defend own atari group
     var myGroups = groupsOf(board, aiColor);
     for (var j = 0; j < myGroups.length; j++) {
       var libs2 = libertyCount(board, myGroups[j]);
@@ -342,27 +493,12 @@
         if (tryPlace(+p2[0], +p2[1], aiColor)) return;
       }
     }
-    // 3) evaluate candidates
-    var cands = candidates();
-    var mid = (N - 1) / 2;
-    if (!cands) {
-      var c0 = Math.round(mid);
-      if (tryPlace(c0, c0, aiColor)) return;
-      return;
-    }
-    var best = null, bestScore = -1;
-    for (var k = 0; k < cands.length; k++) {
-      var rr = +cands[k][0], cc = +cands[k][1];
-      var copy = clone(board);
-      var res = simulate(copy, rr, cc, aiColor, prevBoard);
-      if (!res.ok) continue;
-      var own = getGroup(copy, rr, cc);
-      var libs3 = libertyCount(copy, own).length;
-      var centerBias = 6 - Math.abs(rr - mid) - Math.abs(cc - mid);
-      var sc = res.captured * 40 + libs3 * 3 + centerBias + Math.random() * 5;
-      if (sc > bestScore) { bestScore = sc; best = [rr, cc]; }
-    }
-    if (best) tryPlace(best[0], best[1], aiColor);
+    // 3) MCTS search
+    aiThinking = true;
+    setTimeout(function () {
+      aiThinking = false;
+      if (!over) mctsMove(aiColor);
+    }, 50);
   }
 
   // ---------- render ----------
