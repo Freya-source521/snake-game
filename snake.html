@@ -133,8 +133,8 @@
   const startBtn = document.getElementById('start-btn');
   const muteBtn = document.getElementById('mute-btn');
 
-  const COLS = 20, ROWS = 20;
-  const BASE_STEP = 160, MIN_STEP = 70, SPEED_DOWN = 3;
+  const COLS = 28, ROWS = 28;
+  const BASE_STEP = 145, MIN_STEP = 60, SPEED_DOWN = 3;
   const APPLE_PTS = 10, GOLDEN_PTS = 30, GOLDEN_LIFE = 8000, GOLDEN_CHANCE = 0.22;
   const BEST_KEY = 'snake.best.v1', MUTE_KEY = 'snake.muted.v1';
 
@@ -221,7 +221,7 @@
   }
 
   function reset() {
-    snake = [{ x: 9, y: 10 }, { x: 8, y: 10 }, { x: 7, y: 10 }];
+    snake = [{ x: 13, y: 14 }, { x: 12, y: 14 }, { x: 11, y: 14 }];
     prev = clone(snake);
     dir = { x: 1, y: 0 }; queued = { x: 1, y: 0 };
     apple = null; golden = null;

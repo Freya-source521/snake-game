@@ -30,7 +30,7 @@
   #score { color: var(--accent); } #best { color: #ffd166; } #level { color: #ffd166; } #lines { color: #38b6ff; }
   #main { display: flex; gap: 14px; align-items: flex-start; }
   #wrap { position: relative; }
-  canvas#board { width: min(52vmin, 320px); aspect-ratio: 10/20; background: #0d1226;
+  canvas#board { width: min(54vmin, 350px); aspect-ratio: 1/2; background: #0d1226;
     border-radius: 14px; border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(0,0,0,.5); display: block; touch-action: none; }
   #side { display: flex; flex-direction: column; gap: 12px; width: 118px; }
   .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 8px 10px; text-align: center; }
@@ -113,7 +113,7 @@
   var ovSub = document.getElementById('ov-sub');
   var startBtn = document.getElementById('start-btn');
 
-  var COLS = 10, ROWS = 20;
+  var COLS = 12, ROWS = 24;
   var BEST_KEY = 'tetris.best.v1', MUTE_KEY = 'game2048.muted.v1';
   var dpr = 1, cssW = 300, cell = 30;
 
