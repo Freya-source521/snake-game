@@ -67,7 +67,7 @@
     <canvas id="game"></canvas>
     <div class="saved-tip">💾 自动存档 · 关闭页面后回来可继续</div>
   </div>
-  <footer>五子连珠即胜 · 点击棋盘落子 · 黑方先手</footer>
+  <footer>五子连珠即胜 · 点击棋盘落子 · 黑白方随机先手</footer>
   <div id="overlay"><div class="box"><h2 id="ov-title">五子棋</h2><p id="ov-sub">五子连成一线即获胜<br/>双人对战 / 人机对战</p><div class="btns"><button id="ov-btn">开始游戏</button></div></div></div>
   <script>
 (function () {
@@ -91,6 +91,7 @@
   var board = [];        // 0 empty, 1 black, 2 white
   var history = [];      // [{r,c,color}]
   var current = 1;       // 1 black, 2 white
+  var humanColor = 1;    // player's color in AI mode
   var mode = 'ai';
   var over = false;
   var lastMove = null;
@@ -105,7 +106,7 @@
   function saveNow() {
     try {
       localStorage.setItem(SAVE_KEY, JSON.stringify({
-        v: 1, board: board, history: history, current: current, mode: mode,
+        v: 2, board: board, history: history, current: current, mode: mode, humanColor: humanColor,
         lastMove: lastMove, over: over, ts: Date.now()
       }));
     } catch (e) {}
@@ -129,7 +130,8 @@
     board = [];
     for (var r = 0; r < SIZE; r++) { board.push([]); for (var c = 0; c < SIZE; c++) board[r].push(0); }
     history = [];
-    current = 1;
+    current = Math.random() < 0.5 ? 1 : 2;
+    humanColor = 1; // AI 模式下玩家固定执黑，但黑/白谁先手随机
     over = false;
     lastMove = null;
     aiThinking = false;
@@ -184,7 +186,7 @@
       var m1 = history.pop(), m2 = history.pop();
       board[m1.r][m1.c] = 0; board[m2.r][m2.c] = 0;
       lastMove = history.length ? history[history.length - 1] : null;
-      current = 1;
+      current = humanColor;
     } else {
       var m = history.pop();
       board[m.r][m.c] = 0;
@@ -236,7 +238,7 @@
       // empty board first move: center
       candidates.push([7, 7]);
     }
-    var aiColor = 2, humanColor = 1;
+    var aiColor = 3 - humanColor;
     var best = null, bestScore = -1;
     for (var i = 0; i < candidates.length; i++) {
       var r = candidates[i][0], c = candidates[i][1];
@@ -372,8 +374,12 @@
 
   function updateTurn() {
     if (over) return;
-    turnEl.textContent = current === 1 ? '⚫ 黑方' : '⚪ 白方';
-    if (mode === 'ai' && current === 2) turnEl.textContent = '⚪ 电脑';
+    if (mode === 'ai') {
+      if (current === humanColor) turnEl.textContent = humanColor === 1 ? '⚫ 你' : '⚪ 你';
+      else turnEl.textContent = humanColor === 1 ? '⚪ 电脑' : '⚫ 电脑';
+    } else {
+      turnEl.textContent = current === 1 ? '⚫ 黑方' : '⚪ 白方';
+    }
   }
 
   // ---------- overlay ----------
@@ -388,7 +394,7 @@
 
   function showWin(color) {
     var name = color === 1 ? '⚫ 黑方' : '⚪ 白方';
-    if (mode === 'ai') name = color === 1 ? '🎉 你赢了！' : '🤖 电脑获胜';
+    if (mode === 'ai') name = color === humanColor ? '🎉 你赢了！' : '🤖 电脑获胜';
     showOverlay(name, '本局共 <b>' + history.length + '</b> 手', '再来一局', false);
     queueSave();
   }
@@ -427,6 +433,7 @@
     current = data.current || 1;
     mode = data.mode === 'pvp' ? 'pvp' : 'ai';
     modeSel.value = mode;
+    humanColor = data.humanColor || (mode === 'ai' ? 1 : 1);
     lastMove = data.lastMove || null;
     over = !!data.over;
     aiThinking = false;
@@ -437,7 +444,7 @@
 
   // ---------- loop (for AI) ----------
   setInterval(function () {
-    if (mode === 'ai' && !over && current === 2 && !aiThinking) aiMove();
+    if (mode === 'ai' && !over && current !== humanColor && !aiThinking) aiMove();
   }, 300);
 
   // ---------- boot ----------
@@ -445,7 +452,9 @@
   var saved = loadSave();
   if (saved) {
     reset();
-    showOverlay('检测到存档', '上次下到一半，是否继续？<br/>' + (saved.current === 1 ? '轮到 ⚫ 黑方' : '轮到 ⚪ 白方'),
+    showOverlay('检测到存档', '上次下到一半，是否继续？<br/>' + (saved.mode === 'ai'
+        ? (saved.current === (saved.humanColor || 1) ? '轮到你落子' : '轮到电脑落子')
+        : (saved.current === 1 ? '轮到 ⚫ 黑方' : '轮到 ⚪ 白方')),
       '放弃存档，新局', true);
     var resumeBtn = document.createElement('button');
     resumeBtn.textContent = '继续上次棋局';
