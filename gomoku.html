@@ -67,7 +67,7 @@
     <canvas id="game"></canvas>
     <div class="saved-tip">💾 自动存档 · 关闭页面后回来可继续</div>
   </div>
-  <footer>五子连珠即胜 · 点击棋盘落子 · 黑白方随机先手</footer>
+  <footer>五子连珠即胜 · 双人随机先手 · 人机对战你执黑先行</footer>
   <div id="overlay"><div class="box"><h2 id="ov-title">五子棋</h2><p id="ov-sub">五子连成一线即获胜<br/>双人对战 / 人机对战</p><div class="btns"><button id="ov-btn">开始游戏</button></div></div></div>
   <script>
 (function () {
@@ -130,8 +130,8 @@
     board = [];
     for (var r = 0; r < SIZE; r++) { board.push([]); for (var c = 0; c < SIZE; c++) board[r].push(0); }
     history = [];
-    current = Math.random() < 0.5 ? 1 : 2;
-    humanColor = 1; // AI 模式下玩家固定执黑，但黑/白谁先手随机
+    current = mode === 'ai' ? 1 : (Math.random() < 0.5 ? 1 : 2); // 人机: 你执黑先行; 双人: 随机先手
+    humanColor = 1; // 人机模式玩家固定执黑
     over = false;
     lastMove = null;
     aiThinking = false;
@@ -444,7 +444,7 @@
 
   // ---------- loop (for AI) ----------
   setInterval(function () {
-    if (mode === 'ai' && !over && current !== humanColor && !aiThinking) aiMove();
+    if (mode === 'ai' && !over && current !== humanColor && !aiThinking && current !== 1) aiMove();
   }, 300);
 
   // ---------- boot ----------
