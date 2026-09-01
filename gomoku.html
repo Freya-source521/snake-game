@@ -407,7 +407,7 @@
   // ---------- input ----------
   canvas.addEventListener('pointerdown', function (e) {
     if (over) return;
-    if (mode === 'ai' && current === 2) return;
+    if (mode === 'ai' && current !== humanColor) return;
     var p = cellFromEvent(e);
     if (!p) return;
     placeStone(p.r, p.c, current);
