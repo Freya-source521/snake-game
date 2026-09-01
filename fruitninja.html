@@ -117,7 +117,7 @@
     { e: '🍇', v: 8 }, { e: '🍓', v: 8 }, { e: '🍑', v: 9 }, { e: '🥝', v: 7 }
   ];
   var BOMB = '💣';
-  var GRAV = 1500;
+  var GRAV = 800;
 
   // ---------- DOM ----------
   var canvas = document.getElementById('game');
@@ -145,10 +145,12 @@
       var fr = forceType ? { e: forceType, v: 10 } : pickFruit();
       f = { x: 0, y: 0, vx: 0, vy: 0, r: 24 + Math.random() * 6, type: 'f', rot: 0, vr: 0, age: 0, sliced: false, val: fr.v, emoji: fr.e };
     }
+    // 循序渐进: 开局慢, 随分数逐渐加速
+    var prog = Math.min(1.35, 1 + score / 400);
     f.x = 40 + Math.random() * (W - 80);
     f.y = H + f.r + 8;
-    f.vx = (Math.random() - 0.5) * 160;
-    f.vy = -(950 + Math.random() * 320);
+    f.vx = (Math.random() - 0.5) * (110 + 90 * (prog - 1));
+    f.vy = -(640 + Math.random() * 200) * prog;
     f.rot = Math.random() * 6.28;
     f.vr = (Math.random() - 0.5) * 7;
     fruits.push(f);
@@ -493,7 +495,7 @@
     getState: function () { return { state: state, score: score, lives: lives, combo: combo, fruitCount: fruits.length, best: best }; },
     start: function () { newGame(); },
     spawn: function (type) { return spawnFruit(type); },
-    fruits: function () { return fruits.map(function (f) { return { x: f.x, y: f.y, type: f.emoji, sliced: f.sliced }; }); },
+    fruits: function () { return fruits.map(function (f) { return { x: f.x, y: f.y, vx: f.vx, vy: f.vy, type: f.emoji, sliced: f.sliced }; }); },
     trailCount: function () { return trails.filter(function (t) { return !!t.seg; }).length; },
     cut: function (x, y) {
       for (var i = 0; i < fruits.length; i++) {
