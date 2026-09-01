@@ -148,7 +148,7 @@
     f.x = 40 + Math.random() * (W - 80);
     f.y = H + f.r + 8;
     f.vx = (Math.random() - 0.5) * 160;
-    f.vy = -(600 + Math.random() * 280);
+    f.vy = -(950 + Math.random() * 320);
     f.rot = Math.random() * 6.28;
     f.vr = (Math.random() - 0.5) * 7;
     fruits.push(f);
@@ -286,10 +286,11 @@
         pt.y += pt.vy * dt / 1000;
         if (pt.life > pt.max) parts.splice(p, 1);
       }
-      // 浮字
+      // 刀痕/浮字 生命周期(刀痕短暂闪烁后消失)
       for (var fl = trails.length - 1; fl >= 0; fl--) {
         var ft = trails[fl];
-        if (!ft.seg) { ft.t += dt; if (ft.t > ft.max) trails.splice(fl, 1); }
+        ft.t += dt;
+        if (ft.t > ft.max) trails.splice(fl, 1);
       }
       if (shake > 0) shake = Math.max(0, shake - dt * 0.04);
     }
@@ -352,9 +353,11 @@
     for (var t2 = 0; t2 < trails.length; t2++) {
       var tr = trails[t2];
       if (tr.seg) {
-        ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+        ctx.globalAlpha = Math.max(0, 1 - tr.t / tr.max) * 0.55;
+        ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(tr.seg.x1, tr.seg.y1); ctx.lineTo(tr.seg.x2, tr.seg.y2); ctx.stroke();
+        ctx.globalAlpha = 1;
       } else {
         ctx.globalAlpha = Math.max(0, 1 - tr.t / tr.max);
         ctx.font = 'bold 16px "Segoe UI", sans-serif';
@@ -466,7 +469,7 @@
     if (lastP) {
       var dx = p.x - lastP.x, dy = p.y - lastP.y;
       if (dx * dx + dy * dy > 36) {
-        trails.push({ seg: { x1: lastP.x, y1: lastP.y, x2: p.x, y2: p.y }, t: 0, max: 900 });
+        trails.push({ seg: { x1: lastP.x, y1: lastP.y, x2: p.x, y2: p.y }, t: 0, max: 320 });
         lastP = p;
       }
     } else {
@@ -491,6 +494,7 @@
     start: function () { newGame(); },
     spawn: function (type) { return spawnFruit(type); },
     fruits: function () { return fruits.map(function (f) { return { x: f.x, y: f.y, type: f.emoji, sliced: f.sliced }; }); },
+    trailCount: function () { return trails.filter(function (t) { return !!t.seg; }).length; },
     cut: function (x, y) {
       for (var i = 0; i < fruits.length; i++) {
         var f = fruits[i];
