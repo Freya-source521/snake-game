@@ -373,17 +373,82 @@
     }
     return bs - (ws + KOMI);
   }
+  function flatGroup(f, idx) {
+    var color = f[idx], seen = {}, stack = [idx], out = [];
+    while (stack.length) {
+      var p = stack.pop();
+      if (seen[p] || f[p] !== color) continue;
+      seen[p] = 1; out.push(p);
+      var r = Math.floor(p / N), c = p % N;
+      if (c > 0 && !seen[p - 1]) stack.push(p - 1);
+      if (c < N - 1 && !seen[p + 1]) stack.push(p + 1);
+      if (r > 0 && !seen[p - N]) stack.push(p - N);
+      if (r < N - 1 && !seen[p + N]) stack.push(p + N);
+    }
+    return out;
+  }
+  function flatLibs(f, group) {
+    var libs = {}, out = [];
+    for (var i = 0; i < group.length; i++) {
+      var p = group[i], r = Math.floor(p / N), c = p % N;
+      if (c > 0 && f[p - 1] === 0 && !libs[p - 1]) { libs[p - 1] = 1; out.push(p - 1); }
+      if (c < N - 1 && f[p + 1] === 0 && !libs[p + 1]) { libs[p + 1] = 1; out.push(p + 1); }
+      if (r > 0 && f[p - N] === 0 && !libs[p - N]) { libs[p - N] = 1; out.push(p - N); }
+      if (r < N - 1 && f[p + N] === 0 && !libs[p + N]) { libs[p + N] = 1; out.push(p + N); }
+    }
+    return out;
+  }
+  function flatTactics(f, color) {
+    var opp = 3 - color;
+    var caps = {}, saves = {}, seen = {};
+    for (var p = 0; p < N * N; p++) {
+      if (f[p] === opp && !seen[p]) {
+        var g = flatGroup(f, p);
+        for (var i = 0; i < g.length; i++) seen[g[i]] = 1;
+        var libs = flatLibs(f, g);
+        if (libs.length === 1) caps[libs[0]] = 1;
+      }
+    }
+    seen = {};
+    for (var p2 = 0; p2 < N * N; p2++) {
+      if (f[p2] === color && !seen[p2]) {
+        var g2 = flatGroup(f, p2);
+        for (var j = 0; j < g2.length; j++) seen[g2[j]] = 1;
+        var libs2 = flatLibs(f, g2);
+        if (libs2.length === 1) saves[libs2[0]] = 1;
+      }
+    }
+    return { caps: caps, saves: saves };
+  }
+  function policyPick(f, color, tac) {
+    var cands = [], weights = [], seen = {};
+    for (var k in tac.caps) { cands.push(+k); weights.push(120); seen[k] = 1; }
+    for (var k2 in tac.saves) { if (!seen[k2]) { cands.push(+k2); weights.push(60); seen[k2] = 1; } }
+    for (var r = 0; r < N; r++) {
+      for (var c = 0; c < N; c++) {
+        var idx = r * N + c;
+        if (f[idx] !== 0 || seen[idx]) continue;
+        if (nearStoneFlat(f, r, c)) { cands.push(idx); weights.push(4); seen[idx] = 1; }
+      }
+    }
+    if (!cands.length) {
+      for (var i = 0; i < N * N; i++) if (f[i] === 0) { cands.push(i); weights.push(1); }
+    }
+    var total = 0;
+    for (var w = 0; w < weights.length; w++) total += weights[w];
+    var rnd = Math.random() * total;
+    for (var q = 0; q < cands.length; q++) { rnd -= weights[q]; if (rnd <= 0) return cands[q]; }
+    return cands[cands.length - 1];
+  }
   function playout(f0, aiColor, maxPly) {
     var f = f0.slice();
     var player = 3 - aiColor;
     var passes = 0;
     for (var ply = 0; ply < maxPly; ply++) {
-      var empties = [];
-      for (var i = 0; i < N * N; i++) if (f[i] === 0) empties.push(i);
-      if (!empties.length) break;
+      var tac = flatTactics(f, player);
       var placed = null, attempts = 0;
-      while (attempts < 10) {
-        var m = empties[(Math.random() * empties.length) | 0];
+      while (attempts < 12) {
+        var m = policyPick(f, player, tac);
         if (placeFast(f, m, player)) { placed = m; break; }
         attempts++;
       }
@@ -421,15 +486,20 @@
       tryPlace(mid, mid, aiColor);
       return;
     }
-    // root candidates: empty points near stones
+    // root candidates: 战术点(提子/救子) + 邻近棋子空点
     var cands = [];
+    var seenC = {};
+    var tacRoot = flatTactics(f0, aiColor);
+    for (var kc in tacRoot.caps) { cands.push(+kc); seenC[kc] = 1; }
+    for (var ks in tacRoot.saves) { if (!seenC[ks]) { cands.push(+ks); seenC[ks] = 1; } }
     for (var r = 0; r < N; r++) {
       for (var c = 0; c < N; c++) {
-        if (f0[r * N + c] === 0 && nearStoneFlat(f0, r, c)) cands.push(r * N + c);
+        var idx = r * N + c;
+        if (f0[idx] === 0 && !seenC[idx] && nearStoneFlat(f0, r, c)) cands.push(idx);
       }
     }
     if (!cands.length) return;
-    if (cands.length > 56) cands = shuffleArr(cands).slice(0, 56);
+    if (cands.length > 90) cands = shuffleArr(cands).slice(0, 90);
     // legality filter via the real simulator
     var legal = [];
     for (var k = 0; k < cands.length; k++) {
@@ -439,10 +509,14 @@
       if (res.ok) legal.push(cands[k]);
     }
     if (!legal.length) return;
-    var budget = N <= 9 ? 500 : N <= 13 ? 320 : 200;
+    // 时间预算搜索: 触摸设备(手机)约 0.55s, 桌面约 1s
+    var isTouch = (navigator.maxTouchPoints || 0) > 0;
+    var thinkMs = isTouch ? 550 : 1000;
+    if (N <= 9) thinkMs = Math.round(thinkMs * 0.8);
+    var deadline = Date.now() + thinkMs;
     var visits = {}, wins = {};
     var total = 0;
-    for (var it = 0; it < budget; it++) {
+    while (total < 40 || Date.now() < deadline) {
       var bestKey = null, bestUct = -Infinity;
       for (var d = 0; d < legal.length; d++) {
         var key = legal[d];
@@ -454,7 +528,7 @@
       if (bestKey === null) break;
       var f1 = f0.slice();
       if (!placeFast(f1, bestKey, aiColor)) continue;
-      var res2 = playout(f1, aiColor, N <= 9 ? 90 : 70);
+      var res2 = playout(f1, aiColor, N <= 9 ? 90 : 60);
       visits[bestKey] = (visits[bestKey] || 0) + 1;
       wins[bestKey] = (wins[bestKey] || 0) + res2;
       total++;
@@ -762,7 +836,8 @@
     getBoard: function () { return board.map(function (row) { return row.slice(); }); },
     tryPlace: function (r, c, color) { return tryPlace(r, c, color); },
     getCurrent: function () { return current; },
-    getCaptures: function () { return { b: captures[1], w: captures[2] }; }
+    getCaptures: function () { return { b: captures[1], w: captures[2] }; },
+    getHumanColor: function () { return humanColor; }
   };
 })();
   
