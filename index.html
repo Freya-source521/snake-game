@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>小游戏合集 · 贪吃蛇 2048 消消乐 俄罗斯方块 数独 扫雷 五子棋 围棋</title>
+<title>小游戏合集 · 贪吃蛇 2048 消消乐 俄罗斯方块 数独 扫雷 五子棋 围棋 猪了个猪</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='8' y='8' width='84' height='84' rx='20' fill='%230b0e1a' stroke='%2338f0d0' stroke-width='6'/><text x='50' y='68' font-size='40' text-anchor='middle'>🎮</text></svg>" />
 <style>
   :root {
@@ -25,7 +25,7 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
   .sub { color: var(--muted); font-size: 14px; letter-spacing: 1px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 18px; width: 100%; max-width: 1300px; margin-top: 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; width: 100%; max-width: 1400px; margin-top: 8px; }
   a.card {
     text-decoration: none; color: var(--text);
     background: var(--panel); border: 1px solid var(--border);
@@ -43,6 +43,7 @@
   .c-mine { background: linear-gradient(135deg, #e04f62, #ff8a5e); }
   .c-gomoku { background: linear-gradient(135deg, #3a4a8a, #38b6ff); }
   .c-go { background: linear-gradient(135deg, #b08a3a, #d8b26a); }
+  .c-pig { background: linear-gradient(135deg, #ff7a94, #ffb3c1); }
   .name { font-size: 22px; font-weight: 800; letter-spacing: 2px; }
   .desc { color: var(--muted); font-size: 13px; line-height: 1.8; min-height: 47px; }
   .go { font-size: 13px; color: var(--accent); font-weight: 700; letter-spacing: 2px; }
@@ -51,7 +52,7 @@
 </head>
 <body>
   <h1>🎮 小游戏合集</h1>
-  <div class="sub">贪吃蛇 · 2048 · 消消乐 · 俄罗斯方块 · 数独 · 扫雷 · 五子棋 · 围棋 —— 选择一个开始玩吧</div>
+  <div class="sub">贪吃蛇 · 2048 · 消消乐 · 俄罗斯方块 · 数独 · 扫雷 · 五子棋 · 围棋 · 猪了个猪 —— 选择一个开始玩吧</div>
   <div class="grid">
     <a class="card" href="./snake.html">
       <div class="icon c-snake">🐍</div>
@@ -99,6 +100,12 @@
       <div class="icon c-go">⚪</div>
       <div class="name">围棋</div>
       <div class="desc">19 路棋盘 · 提子打劫<br/>围地计分 · 双人/人机</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+    <a class="card" href="./pig.html">
+      <div class="icon c-pig">🐷</div>
+      <div class="name">猪了个猪</div>
+      <div class="desc">堆叠消除 · 3 个相同即消<br/>多关卡 · 撤回/洗牌/移出</div>
       <div class="go">开始游戏 →</div>
     </a>
   </div>
