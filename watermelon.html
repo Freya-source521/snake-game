@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>合成大西瓜 · Suika</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='12' y='22' width='76' height='56' rx='22' fill='%2328b463'/><path d='M30 30 q8 -12 20 -6 q12 -8 22 6' stroke='%23167a3a' stroke-width='5' fill='none' stroke-linecap='round'/></svg>" />
+<style>
+  :root {
+    --bg: #0b0e1a; --panel: rgba(255,255,255,0.06); --border: rgba(255,255,255,0.12);
+    --accent: #38f0d0; --accent2: #ff7a94; --text: #e8ecff; --muted: #8a92b8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: radial-gradient(1200px 800px at 50% 15%, #14261c 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; min-height: 100%; overflow: hidden;
+    user-select: none; -webkit-user-select: none; touch-action: none;
+  }
+  header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  a.home { text-decoration: none; color: var(--muted); font-size: 13px; background: var(--panel); border: 1px solid var(--border); border-radius: 999px; padding: 6px 14px; }
+  .hud {
+    display: flex; flex-direction: column; align-items: center; min-width: 74px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 5px 14px;
+  }
+  .hud .label { font-size: 11px; color: var(--muted); letter-spacing: 2px; }
+  .hud .value { font-size: 22px; font-weight: 700; line-height: 1.2; }
+  #score { color: var(--accent); }
+  #best { color: #ffd166; }
+  #bgm-btn {
+    background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    border-radius: 12px; padding: 8px 12px; cursor: pointer; font-size: 18px;
+  }
+  #wrap { position: relative; }
+  canvas {
+    width: min(92vw, 420px); aspect-ratio: 360 / 540;
+    background: linear-gradient(180deg, #10241b 0%, #0d1226 85%);
+    border-radius: 20px; border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0,0,0,.5); display: block;
+    touch-action: none; cursor: pointer;
+  }
+  #overlay {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 12px; background: rgba(8,10,22,0.8);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    border-radius: 20px; text-align: center; padding: 20px; z-index: 1000;
+  }
+  #overlay.hidden { display: none; }
+  #overlay h1 {
+    font-size: 36px; letter-spacing: 4px; margin: 0;
+    background: linear-gradient(90deg, #4ade80, var(--accent));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  #overlay .sub { color: var(--muted); font-size: 14px; line-height: 2; max-width: 340px; }
+  #overlay .sub b { color: var(--accent); }
+  #overlay .result { font-size: 15px; color: var(--text); line-height: 1.9; display: none; }
+  #overlay .result.show { display: block; }
+  #overlay .result b { color: var(--accent); font-size: 20px; }
+  #start-btn {
+    margin-top: 4px; background: linear-gradient(90deg, #4ade80, #22c1a8);
+    color: #062a24; font-size: 18px; font-weight: 700; border: none;
+    padding: 12px 38px; border-radius: 999px; cursor: pointer;
+    box-shadow: 0 8px 24px rgba(74,222,128,.35);
+  }
+  #start-btn:active { transform: scale(.96); }
+  .keys { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+  .key { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 12px; color: var(--muted); }
+  .saved-tip { color: var(--muted); font-size: 11px; }
+  @media (max-width: 520px) {
+    #overlay h1 { font-size: 28px; letter-spacing: 3px; }
+    .hud { min-width: 62px; } .hud .value { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <a class="home" href="./">🏠 主页</a>
+    <div class="hud"><div class="label">得分</div><div class="value" id="score">0</div></div>
+    <div class="hud"><div class="label">最高分</div><div class="value" id="best">0</div></div>
+    <button id="bgm-btn" title="背景音乐">🎵</button>
+  </header>
+  <div id="wrap">
+    <canvas id="game"></canvas>
+    <div id="overlay">
+      <h1>🍉 合成大西瓜</h1>
+      <div class="sub">移动手指瞄准，松手落下水果<br/><b>两个相同的水果碰在一起就会合成更大的</b><br/>小心！水果堆过红线就结束啦</div>
+      <div class="result" id="result"></div>
+      <button id="start-btn">开始游戏</button>
+      <div class="keys">
+        <span class="key">📱 滑动瞄准 · 松手落下</span>
+        <span class="key">🖱 鼠标同款</span>
+      </div>
+    </div>
+  </div>
+  <div class="saved-tip">💾 自动存档最高分 · 关闭页面后回来还在</div>
+  <script>
+(function () {
+  'use strict';
+
+  // ---------- 存档 ----------
+  var SAVE_KEY = 'watermelon.save.v1';
+  var best = 0;
+  try {
+    var raw = localStorage.getItem(SAVE_KEY);
+    if (raw) { var o = JSON.parse(raw); if (o && typeof o.best === 'number') best = o.best; }
+  } catch (e) {}
+  function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ best: best, maxFruit: maxType })); } catch (e) {} }
+
+  // ---------- 常量 ----------
+  var W = 360, H = 540, TOP = 46;         // 红线
+  var FRUITS = [
+    { e: '🍒', r: 15, w: 12 },   // 0 樱桃
+    { e: '🍓', r: 19, w: 12 },   // 1 草莓
+    { e: '🍇', r: 23, w: 10 },   // 2 葡萄
+    { e: '🍊', r: 29, w: 9 },    // 3 橘子
+    { e: '🍑', r: 35, w: 7 },    // 4 桃子
+    { e: '🍎', r: 41, w: 0 },    // 5 苹果
+    { e: '🍐', r: 47, w: 0 },    // 6 梨
+    { e: '🍍', r: 53, w: 0 },    // 7 菠萝
+    { e: '🥥', r: 60, w: 0 },    // 8 椰子
+    { e: '🍈', r: 66, w: 0 },    // 9 蜜瓜
+    { e: '🍉', r: 74, w: 0 }     // 10 西瓜
+  ];
+  var maxType = 0;
+  var GRAV = 2200, REST = 0.35, FRICTION = 0.996;
+
+  // ---------- DOM ----------
+  var canvas = document.getElementById('game');
+  var ctx = canvas.getContext('2d');
+  canvas.width = W; canvas.height = H;
+  var scoreEl = document.getElementById('score'), bestEl = document.getElementById('best');
+  var overlay = document.getElementById('overlay'), resultEl = document.getElementById('result');
+  var startBtn = document.getElementById('start-btn');
+
+  // ---------- 游戏状态 ----------
+  var state = 'menu'; // menu | playing | over
+  var score = 0;
+  var fruits = [];    // {x,y,vx,vy,r,type,age,id}
+  var active = null;  // 瞄准中的水果（还没落下）
+  var spawnLock = 0, overLock = false, nextId = 1;
+  var floats = [];    // 得分飘字
+
+  function pickSpawnType() {
+    var total = 0, i;
+    for (i = 0; i < 5; i++) total += FRUITS[i].w;
+    var r = Math.random() * total;
+    for (i = 0; i < 5; i++) { r -= FRUITS[i].w; if (r <= 0) return i; }
+    return 0;
+  }
+  function makeActive() {
+    var t = pickSpawnType();
+    active = { x: W / 2, y: TOP + FRUITS[t].r + 2, vx: 0, vy: 0, r: FRUITS[t].r, type: t, age: 0, id: nextId++ };
+  }
+  function spawnFruit(type, x, y, vx, vy) {
+    var f = { x: x, y: y, vx: vx || 0, vy: vy || 0, r: FRUITS[type].r, type: type, age: 0, id: nextId++ };
+    fruits.push(f);
+    return f;
+  }
+
+  function setState(s) {
+    state = s;
+    overlay.classList.toggle('hidden', s === 'playing');
+    if (s === 'menu') {
+      document.querySelector('#overlay h1').textContent = '🍉 合成大西瓜';
+      document.querySelector('#overlay .sub').innerHTML = '移动手指瞄准，松手落下水果<br/><b>两个相同的水果碰在一起就会合成更大的</b><br/>小心！水果堆过红线就结束啦';
+      resultEl.classList.remove('show');
+      startBtn.textContent = '开始游戏';
+    } else if (s === 'over') {
+      document.querySelector('#overlay h1').textContent = '💥 游戏结束';
+      document.querySelector('#overlay .sub').textContent = '';
+      resultEl.classList.add('show');
+      resultEl.innerHTML = '本局得分 <b>' + score + '</b><br/>最高分 <b>' + best + '</b>';
+      startBtn.textContent = '再来一局';
+    }
+  }
+
+  function newGame() {
+    score = 0; fruits = []; floats = []; spawnLock = 0; overLock = false;
+    maxType = 0;
+    updateHud();
+    makeActive();
+    setState('playing');
+  }
+
+  function updateHud() {
+    scoreEl.textContent = score;
+    bestEl.textContent = best;
+  }
+
+  function gameOver() {
+    if (overLock) return;
+    overLock = true;
+    if (score > best) { best = score; }
+    persist();
+    updateHud();
+    sfx('over');
+    setState('over');
+  }
+
+  // ---------- 物理 ----------
+  function stepPhysics(dt) {
+    // 子步进提高稳定性
+    var steps = 4, h = dt / steps;
+    for (var s = 0; s < steps; s++) {
+      for (var i = 0; i < fruits.length; i++) {
+        var f = fruits[i];
+        f.vy += GRAV * h;
+        f.x += f.vx * h;
+        f.y += f.vy * h;
+        // 墙壁
+        if (f.x - f.r < 0) { f.x = f.r; f.vx = Math.abs(f.vx) * 0.4; }
+        if (f.x + f.r > W) { f.x = W - f.r; f.vx = -Math.abs(f.vx) * 0.4; }
+        if (f.y + f.r > H) { f.y = H - f.r; f.vy = -f.vy * REST; f.vx *= 0.94; }
+        if (f.y - f.r < 0 && f.vy < 0) { f.y = f.r; f.vy = 0; }
+      }
+      // 圆形碰撞
+      for (var a = 0; a < fruits.length; a++) {
+        for (var b = a + 1; b < fruits.length; b++) {
+          var A = fruits[a], B = fruits[b];
+          var dx = B.x - A.x, dy = B.y - A.y;
+          var d2 = dx * dx + dy * dy;
+          var md = A.r + B.r;
+          if (d2 >= md * md || d2 === 0) continue;
+          var d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
+          var overlap = md - d;
+          A.x -= nx * overlap * 0.5; A.y -= ny * overlap * 0.5;
+          B.x += nx * overlap * 0.5; B.y += ny * overlap * 0.5;
+          var rel = (B.vx - A.vx) * nx + (B.vy - A.vy) * ny;
+          if (rel < 0) {
+            var j = -(1 + REST) * rel * 0.5;
+            A.vx -= j * nx; A.vy -= j * ny;
+            B.vx += j * nx; B.vy += j * ny;
+          }
+        }
+      }
+      // 摩擦阻尼
+      for (var k = 0; k < fruits.length; k++) {
+        fruits[k].vx *= FRICTION;
+        fruits[k].vy *= FRICTION;
+        if (Math.abs(fruits[k].vx) < 0.02) fruits[k].vx = 0;
+        if (Math.abs(fruits[k].vy) < 0.02) fruits[k].vy = 0;
+      }
+    }
+  }
+
+  function mergeCheck() {
+    var merged = true;
+    while (merged) {
+      merged = false;
+      for (var a = 0; a < fruits.length; a++) {
+        for (var b = a + 1; b < fruits.length; b++) {
+          var A = fruits[a], B = fruits[b];
+          if (A.type !== B.type) continue;
+          var dx = B.x - A.x, dy = B.y - A.y;
+          var d2 = dx * dx + dy * dy;
+          var md = A.r + B.r;
+          if (d2 >= md * md) continue;
+          // 合并
+          var t = A.type + 1;
+          if (t > maxType) maxType = t;
+          var nx = A.x + (B.x - A.x) / 2, ny = A.y + (B.y - A.y) / 2;
+          fruits.splice(b, 1);
+          fruits.splice(a, 1);
+          if (t >= FRUITS.length) {
+            // 两个西瓜合成后消失，给予大额奖励
+            var big = 200;
+            score += big;
+            floats.push({ x: nx, y: ny - 8, txt: '+' + big, t: 0 });
+            sfx('merge');
+            updateHud();
+            merged = true;
+            break;
+          }
+          var nf = spawnFruit(t, nx, ny, (A.vx + B.vx) * 0.4, (A.vy + B.vy) * 0.4 - 60);
+          nf.x = Math.max(nf.r, Math.min(W - nf.r, nf.x));
+          nf.y = Math.max(nf.r, Math.min(H - nf.r, nf.y));
+          var gain = (t + 1) * 10;
+          score += gain;
+          floats.push({ x: nx, y: ny - 8, txt: '+' + gain, t: 0 });
+          sfx('merge');
+          updateHud();
+          merged = true;
+          break;
+        }
+        if (merged) break;
+      }
+    }
+  }
+
+  // ---------- 主循环 ----------
+  var last = 0;
+  function frame(ts) {
+    requestAnimationFrame(frame);
+    if (!last) last = ts;
+    var dt = Math.min(50, ts - last); last = ts;
+
+    if (state === 'playing') {
+      if (spawnLock > 0) spawnLock -= dt;
+      if (!active && spawnLock <= 0) makeActive();
+      if (active) active.age += dt;
+      stepPhysics(dt);
+      mergeCheck();
+      // 浮字
+      for (var i = floats.length - 1; i >= 0; i--) { floats[i].t += dt; if (floats[i].t > 900) floats.splice(i, 1); }
+      // 游戏结束判定：超过红线且已稳定
+      for (var j = 0; j < fruits.length; j++) {
+        var f = fruits[j];
+        f.age += dt;
+        if (f.y - f.r < TOP - 4 && f.age > 300) { gameOver(); break; }
+      }
+    }
+    draw();
+  }
+
+  // ---------- 绘制 ----------
+  function drawFruit(f, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha === undefined ? 1 : alpha;
+    var x = f.x, y = f.y, r = f.r;
+    // 阴影
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath(); ctx.ellipse(x, y + r * 0.9, r * 0.85, r * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+    // 圆底
+    var g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.15, x, y, r);
+    g.addColorStop(0, 'rgba(255,255,255,0.35)');
+    g.addColorStop(0.55, 'rgba(255,255,255,0.06)');
+    g.addColorStop(1, 'rgba(0,0,0,0.28)');
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    // 水果 emoji
+    ctx.font = (r * 1.5) + 'px serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(FRUITS[f.type].e, x, y + r * 0.06);
+    ctx.restore();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    // 红线
+    ctx.strokeStyle = 'rgba(255,93,108,0.55)';
+    ctx.setLineDash([8, 6]);
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, TOP); ctx.lineTo(W, TOP); ctx.stroke();
+    ctx.setLineDash([]);
+    // 水果
+    for (var i = 0; i < fruits.length; i++) drawFruit(fruits[i]);
+    // 瞄准水果
+    if (active && state === 'playing') drawFruit(active, 0.55);
+    // 得分飘字
+    for (var j = 0; j < floats.length; j++) {
+      var f = floats[j];
+      ctx.globalAlpha = Math.max(0, 1 - f.t / 900);
+      ctx.font = 'bold 18px "Segoe UI", sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffd166';
+      ctx.fillText(f.txt, f.x, f.y - f.t * 0.05);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ---------- 音效 ----------
+  var sfxCtx = null;
+  function sfx(kind) {
+    try {
+      if (!sfxCtx) { var AC = window.AudioContext || window.webkitAudioContext; if (AC) sfxCtx = new AC(); }
+      if (!sfxCtx || sfxCtx.state === 'suspended') return;
+      var t0 = sfxCtx.currentTime;
+      function tone(f, dur, type, vol, when) {
+        var o = sfxCtx.createOscillator(), g = sfxCtx.createGain();
+        o.type = type; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t0 + when);
+        g.gain.linearRampToValueAtTime(vol, t0 + when + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + when + dur);
+        o.connect(g); g.connect(sfxCtx.destination);
+        o.start(t0 + when); o.stop(t0 + when + dur + 0.02);
+      }
+      if (kind === 'drop') tone(260, 0.05, 'sine', 0.1, 0);
+      else if (kind === 'merge') { tone(523, 0.09, 'triangle', 0.16, 0); tone(784, 0.12, 'triangle', 0.14, 0.06); }
+      else if (kind === 'over') { tone(300, 0.4, 'sawtooth', 0.18, 0); tone(180, 0.5, 'square', 0.14, 0.1); }
+    } catch (e) {}
+  }
+
+  // ---------- 背景音乐 (自动播放 + 首次触摸兜底) ----------
+  var BGM_KEY = 'bgm.muted.v1';
+  var on = true;
+  try { on = localStorage.getItem(BGM_KEY) !== '1'; } catch (e) {}
+  var audio = null, timer = null, bIdx = 0;
+  var MELODY = [523.25, 659.25, 783.99, 659.25, 880.00, 783.99, 659.25, 587.33, 523.25, 659.25, 783.99, 880.00, 783.99, 659.25, 587.33, 0];
+  var BASS = [130.81, 130.81, 196.00, 196.00, 220.00, 220.00, 174.61, 174.61, 130.81, 130.81, 196.00, 196.00, 220.00, 174.61, 196.00, 0];
+  function ensure() {
+    try {
+      if (!audio) { var AC = window.AudioContext || window.webkitAudioContext; if (AC) audio = new AC(); }
+      if (audio && audio.state === 'suspended') { var p = audio.resume(); if (p && p.catch) p.catch(function(){}); }
+    } catch (e) {}
+  }
+  function play(f, t, dur, type, vol) {
+    try {
+      var o = audio.createOscillator(), g = audio.createGain();
+      o.type = type; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(audio.destination);
+      o.start(t); o.stop(t + dur + 0.03);
+    } catch (e) {}
+  }
+  function start() {
+    ensure();
+    if (!audio || timer || !on) return;
+    var step = 60 / 120 / 2;
+    var next = audio.currentTime + 0.1;
+    timer = setInterval(function () {
+      if (audio.state === 'suspended') return;
+      var now = audio.currentTime;
+      while (next < now + 0.4) {
+        var m = MELODY[bIdx % MELODY.length], b = BASS[bIdx % BASS.length];
+        if (m > 0) play(m, next, step * 0.9, 'triangle', 0.2);
+        if (b > 0) play(b, next, step * 1.8, 'sine', 0.15);
+        bIdx++; next += step;
+      }
+    }, 120);
+  }
+  function stop() { if (timer) { clearInterval(timer); timer = null; } }
+  function setBtn() { var b = document.getElementById('bgm-btn'); if (b) b.textContent = on ? '🎵' : '🔇'; }
+  function toggle() {
+    ensure();
+    if (on && !(timer && audio && audio.state === 'running')) {
+      if (audio && audio.state === 'suspended') { var p = audio.resume(); if (p && p.catch) p.catch(function(){}); }
+      start(); setBtn(); return;
+    }
+    on = !on;
+    try { localStorage.setItem(BGM_KEY, on ? '0' : '1'); } catch (e) {}
+    if (on) start(); else stop();
+    setBtn();
+  }
+  document.getElementById('bgm-btn').addEventListener('click', toggle);
+  function tryStart() { ensure(); if (audio && on) { if (audio.state === 'suspended') { var p = audio.resume(); if (p && p.catch) p.catch(function(){}); } if (!timer) start(); } }
+  function first(e) { if (e && e.target && e.target.closest && e.target.closest('#bgm-btn')) return; tryStart(); }
+  document.addEventListener('pointerdown', first, { once: true });
+  document.addEventListener('touchstart', first, { once: true });
+  document.addEventListener('keydown', first, { once: true });
+  tryStart();
+
+  // ---------- 控制 ----------
+  function pointerX(clientX) {
+    var r = canvas.getBoundingClientRect();
+    return Math.max(0, Math.min(W, (clientX - r.left) * (W / r.width)));
+  }
+  function dropActive() {
+    if (!active || state !== 'playing') return;
+    var f = spawnFruit(active.type, active.x, active.y, active.vx, active.vy);
+    f.age = 0;
+    active = null;
+    spawnLock = 260;
+    sfx('drop');
+  }
+  canvas.addEventListener('pointerdown', function (ev) {
+    ev.preventDefault();
+    if (state === 'playing' && active) active.x = pointerX(ev.clientX);
+  });
+  canvas.addEventListener('pointermove', function (ev) {
+    if (state === 'playing' && active) active.x = pointerX(ev.clientX);
+  });
+  canvas.addEventListener('pointerup', function () {
+    if (state === 'playing') dropActive();
+  });
+
+  startBtn.addEventListener('click', function () {
+    if (state === 'over' || state === 'menu') newGame();
+  });
+  // 离开页面暂停显示
+  document.addEventListener('visibilitychange', function () { if (document.hidden && state === 'playing') setState('menu'); });
+
+  // ---------- 启动 ----------
+  bestEl.textContent = best;
+  updateHud();
+  makeActive();
+  requestAnimationFrame(frame);
+
+  // 调试钩子
+  window.__watermelon = {
+    getState: function () { return { state: state, score: score, fruitCount: fruits.length, active: !!active, best: best }; },
+    start: function () { newGame(); },
+    setX: function (x) { if (active) active.x = Math.max(0, Math.min(W, x)); },
+    drop: function (type, x) {
+      if (state !== 'playing') newGame();
+      if (!active) makeActive();
+      if (type !== undefined) { active.type = type % FRUITS.length; active.r = FRUITS[active.type].r; active.y = TOP + active.r + 2; }
+      if (x !== undefined) active.x = Math.max(0, Math.min(W, x));
+      dropActive();
+    },
+    forceFruit: function (type, x, y) { spawnFruit(type, x === undefined ? W / 2 : x, y === undefined ? H - 20 : y); },
+    debugOver: function () { gameOver(); },
+    fruits: function () { return fruits.map(function (f) { return { x: f.x, y: f.y, r: f.r, type: f.type, vx: f.vx, vy: f.vy }; }); }
+  };
+})();
+</script>
+</body>
+</html>
