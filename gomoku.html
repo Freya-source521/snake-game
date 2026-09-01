@@ -241,14 +241,24 @@
     }
     var aiColor = 3 - humanColor;
     var best = null, bestScore = -1;
+    var scored = [];
     for (var i = 0; i < candidates.length; i++) {
       var r = candidates[i][0], c = candidates[i][1];
       var off = scoreAt(r, c, aiColor);
       var def = scoreAt(r, c, humanColor);
-      var total = off + def * 0.9;
+      var total = off + def * 0.8;
+      scored.push({ r: r, c: c, s: total });
       if (total > bestScore) { bestScore = total; best = candidates[i]; }
     }
     if (!best) return;
+    // 轻微随机失误: 约 22% 概率在较优候选中随机选, 降低人机难度
+    if (Math.random() < 0.22) {
+      var pool = scored.filter(function (e) { return e.s >= bestScore * 0.7; });
+      if (pool.length) {
+        var pick = pool[(Math.random() * pool.length) | 0];
+        best = [pick.r, pick.c];
+      }
+    }
     aiThinking = true;
     var br = best[0], bc = best[1];
     setTimeout(function () {
@@ -447,6 +457,13 @@
   setInterval(function () {
     if (mode === 'ai' && !over && current !== humanColor && !aiThinking) aiMove();
   }, 300);
+  // 调试钩子(无害)
+  window.__gomoku = {
+    getBoard: function () { return board.map(function (r) { return r.slice(); }); },
+    getCurrent: function () { return current; },
+    getHumanColor: function () { return humanColor; },
+    place: function (r, c, color) { return placeStone(r, c, color); }
+  };
 
   // ---------- boot ----------
   resize();
