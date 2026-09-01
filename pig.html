@@ -96,7 +96,7 @@
   var TRAY_CAP = 7;
   var SAVE_KEY = 'pig.save.v1';
   var TYPES_L1 = 8, TYPES_L2 = 10, TYPES_L3 = 12;
-  var ICONS = ['🐷','🐖','🥓','🍖','🍯','🌾','🥛','🧀','🥕','🍠','🌽','🧺'];
+  var ICONS = ['🐷','🐖','🥓','🍖','🍯','🌾','🥛','🧀','🥕','🍠','🌽','🧺','🥚','🍄','🌶️'];
   var audio = null;
 
   var boardEl = document.getElementById('board');
@@ -177,7 +177,7 @@
 
   // ---------- layout ----------
   function currentMaxDepth() {
-    return level === 1 ? 3 : level === 2 ? 4 : level === 3 ? 5 : level === 4 ? 6 : 7;
+    return level === 1 ? 4 : level === 2 ? 5 : level === 3 ? 6 : level === 4 ? 7 : 8;
   }
   function buildBoard() {
     var w = boardEl.clientWidth;
@@ -199,7 +199,7 @@
 
   function makeLayout() {
     var maxDepth = currentMaxDepth();
-    var target = level === 1 ? 45 : level === 2 ? 66 : level === 3 ? 90 : level === 4 ? 108 : 126;
+    var target = level === 1 ? 51 : level === 2 ? 78 : level === 3 ? 102 : level === 4 ? 120 : 138;
     var cells = [];
     for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) cells.push([r, c]);
     shuffle(cells);
@@ -225,7 +225,7 @@
       total++;
     }
     // multiset
-    var typeCount = level === 1 ? TYPES_L1 : level === 2 ? TYPES_L2 : TYPES_L3;
+    var typeCount = level === 1 ? TYPES_L1 : level === 2 ? TYPES_L2 : level === 3 ? TYPES_L3 : level === 4 ? 14 : 15;
     var multiset = [];
     for (var g = 0; g < total / 3; g++) {
       var t = (Math.random() * typeCount) | 0;
@@ -531,26 +531,29 @@
   };
 })();
   
-  // ===== 背景音乐 (background music, self-contained) =====
+  // ===== 背景音乐 (轻快欢乐风格 · 旋律+低音) =====
   (function () {
     'use strict';
     var BGM_KEY = 'bgm.muted.v1';
     var on = true;
     try { on = localStorage.getItem(BGM_KEY) !== '1'; } catch (e) {}
     var audio = null, timer = null, idx = 0;
-    var NOTES = [523.25, 587.33, 659.25, 783.99, 880.00, 783.99, 659.25, 587.33];
+    var MELODY = [523.25, 659.25, 783.99, 659.25, 880.00, 783.99, 659.25, 587.33,
+                  523.25, 659.25, 783.99, 880.00, 783.99, 659.25, 587.33, 0];
+    var BASS =   [130.81, 130.81, 196.00, 196.00, 220.00, 220.00, 174.61, 174.61,
+                  130.81, 130.81, 196.00, 196.00, 220.00, 174.61, 196.00, 0];
     function ensure() {
       try {
         if (!audio) { var AC = window.AudioContext || window.webkitAudioContext; if (AC) audio = new AC(); }
         if (audio && audio.state === 'suspended') audio.resume();
       } catch (e) {}
     }
-    function note(f, t, dur) {
+    function play(f, t, dur, type, vol) {
       try {
         var o = audio.createOscillator(), g = audio.createGain();
-        o.type = 'sine'; o.frequency.value = f;
+        o.type = type; o.frequency.value = f;
         g.gain.setValueAtTime(0.0001, t);
-        g.gain.linearRampToValueAtTime(0.05, t + 0.02);
+        g.gain.linearRampToValueAtTime(vol, t + 0.02);
         g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
         o.connect(g); g.connect(audio.destination);
         o.start(t); o.stop(t + dur + 0.03);
@@ -559,15 +562,16 @@
     function start() {
       ensure();
       if (!audio || timer || !on) return;
-      var step = 60 / 90 / 2;
+      var step = 60 / 120 / 2;
       var next = audio.currentTime + 0.1;
       timer = setInterval(function () {
         if (audio.state === 'suspended') return;
         var now = audio.currentTime;
-        while (next < now + 0.35) {
-          var f = NOTES[idx % NOTES.length];
-          if (idx % 8 === 7) f = f / 2;
-          note(f, next, step * 0.9);
+        while (next < now + 0.4) {
+          var m = MELODY[idx % MELODY.length];
+          var b = BASS[idx % BASS.length];
+          if (m > 0) play(m, next, step * 0.9, 'triangle', 0.13);
+          if (b > 0) play(b, next, step * 1.8, 'sine', 0.10);
           idx++;
           next += step;
         }
@@ -576,6 +580,8 @@
     function stop() { if (timer) { clearInterval(timer); timer = null; } }
     function setBtn() { var b = document.getElementById('bgm-btn'); if (b) b.textContent = on ? '🎵' : '🔇'; }
     function toggle() {
+      ensure();
+      if (on && !timer && audio) { start(); setBtn(); return; }
       on = !on;
       try { localStorage.setItem(BGM_KEY, on ? '0' : '1'); } catch (e) {}
       if (on) start(); else stop();
@@ -591,7 +597,7 @@
       btn.addEventListener('click', toggle);
       hdr.appendChild(btn);
     }
-    function first() { if (on) start(); }
+    function first(e) { if (e && e.target && e.target.closest && e.target.closest('#bgm-btn')) return; if (on) start(); }
     document.addEventListener('pointerdown', first, { once: true });
     document.addEventListener('keydown', first, { once: true });
     window.addEventListener('pagehide', stop);
