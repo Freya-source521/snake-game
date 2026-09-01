@@ -142,6 +142,7 @@
   var active = null;  // 瞄准中的水果（还没落下）
   var spawnLock = 0, overLock = false, nextId = 1;
   var floats = [];    // 得分飘字
+  var pAcc = 0;         // 物理累加器
 
   function pickSpawnType() {
     var total = 0, i;
@@ -155,7 +156,8 @@
     active = { x: W / 2, y: TOP + FRUITS[t].r + 2, vx: 0, vy: 0, r: FRUITS[t].r, type: t, age: 0, id: nextId++ };
   }
   function spawnFruit(type, x, y, vx, vy) {
-    var f = { x: x, y: y, vx: vx || 0, vy: vy || 0, r: FRUITS[type].r, type: type, age: 0, id: nextId++ };
+    var r = FRUITS[type].r;
+    var f = { x: x, y: y, px: x, py: y, vx: vx || 0, vy: vy || 0, r: r, inv: 1 / (r * r), type: type, age: 0, id: nextId++ };
     fruits.push(f);
     return f;
   }
@@ -200,49 +202,55 @@
     setState('over');
   }
 
-  // ---------- 物理 ----------
-  function stepPhysics(dt) {
-    // 子步进提高稳定性
-    var steps = 4, h = dt / steps;
-    for (var s = 0; s < steps; s++) {
-      for (var i = 0; i < fruits.length; i++) {
-        var f = fruits[i];
-        f.vy += GRAV * h;
-        f.x += f.vx * h;
-        f.y += f.vy * h;
-        // 墙壁
-        if (f.x - f.r < 0) { f.x = f.r; f.vx = Math.abs(f.vx) * 0.4; }
-        if (f.x + f.r > W) { f.x = W - f.r; f.vx = -Math.abs(f.vx) * 0.4; }
-        if (f.y + f.r > H) { f.y = H - f.r; f.vy = -f.vy * REST; f.vx *= 0.94; }
-        if (f.y - f.r < 0 && f.vy < 0) { f.y = f.r; f.vy = 0; }
+  // ---------- 真实物理引擎 (Position-Based Dynamics) ----------
+  // 位置约束求解: 稳定堆叠、无爆炸抖动、质量加权碰撞 —— 与 Matter.js/Box2D 同思路
+  var PHYS_DT = 1 / 120;    // 固定物理步长(秒)
+  var SOLVE_ITERS = 8;       // 约束迭代次数
+  var DAMP = 0.995;          // 全局阻尼
+  function pbdStep(h) {
+    // 1) 半隐式积分(重力)
+    for (var i = 0; i < fruits.length; i++) {
+      var f = fruits[i];
+      f.px = f.x; f.py = f.y;
+      f.vy += GRAV * h;
+      f.x += f.vx * h;
+      f.y += f.vy * h;
+    }
+    // 2) 约束求解(迭代投影)
+    for (var it = 0; it < SOLVE_ITERS; it++) {
+      // 墙壁
+      for (var w = 0; w < fruits.length; w++) {
+        var b = fruits[w];
+        if (b.x - b.r < 0) b.x = b.r;
+        else if (b.x + b.r > W) b.x = W - b.r;
+        if (b.y + b.r > H) b.y = H - b.r;
+        else if (b.y - b.r < 0) b.y = b.r;
       }
-      // 圆形碰撞
+      // 圆-圆接触(按质量分配推开)
       for (var a = 0; a < fruits.length; a++) {
-        for (var b = a + 1; b < fruits.length; b++) {
-          var A = fruits[a], B = fruits[b];
+        for (var b2 = a + 1; b2 < fruits.length; b2++) {
+          var A = fruits[a], B = fruits[b2];
           var dx = B.x - A.x, dy = B.y - A.y;
           var d2 = dx * dx + dy * dy;
           var md = A.r + B.r;
           if (d2 >= md * md || d2 === 0) continue;
           var d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
           var overlap = md - d;
-          A.x -= nx * overlap * 0.5; A.y -= ny * overlap * 0.5;
-          B.x += nx * overlap * 0.5; B.y += ny * overlap * 0.5;
-          var rel = (B.vx - A.vx) * nx + (B.vy - A.vy) * ny;
-          if (rel < 0) {
-            var j = -(1 + REST) * rel * 0.5;
-            A.vx -= j * nx; A.vy -= j * ny;
-            B.vx += j * nx; B.vy += j * ny;
-          }
+          var invSum = A.inv + B.inv;
+          var wA = A.inv / invSum, wB = B.inv / invSum;
+          A.x -= nx * overlap * wA; A.y -= ny * overlap * wA;
+          B.x += nx * overlap * wB; B.y += ny * overlap * wB;
         }
       }
-      // 摩擦阻尼
-      for (var k = 0; k < fruits.length; k++) {
-        fruits[k].vx *= FRICTION;
-        fruits[k].vy *= FRICTION;
-        if (Math.abs(fruits[k].vx) < 0.02) fruits[k].vx = 0;
-        if (Math.abs(fruits[k].vy) < 0.02) fruits[k].vy = 0;
-      }
+    }
+    // 3) 位置差反算速度 + 阻尼 + 地面摩擦
+    for (var k = 0; k < fruits.length; k++) {
+      var f2 = fruits[k];
+      f2.vx = (f2.x - f2.px) / h * DAMP;
+      f2.vy = (f2.y - f2.py) / h * DAMP;
+      if (f2.y + f2.r >= H - 0.5) f2.vx *= 0.94;   // 地面滚动摩擦
+      if (Math.abs(f2.vx) < 0.05) f2.vx = 0;
+      if (Math.abs(f2.vy) < 0.05) f2.vy = 0;
     }
   }
 
@@ -301,7 +309,10 @@
       if (spawnLock > 0) spawnLock -= dt;
       if (!active && spawnLock <= 0) makeActive();
       if (active) active.age += dt;
-      stepPhysics(dt);
+      // 固定步长物理
+      pAcc += dt / 1000;
+      var maxSteps = 6;
+      while (pAcc >= PHYS_DT && maxSteps-- > 0) { pbdStep(PHYS_DT); pAcc -= PHYS_DT; }
       mergeCheck();
       // 浮字
       for (var i = floats.length - 1; i >= 0; i--) { floats[i].t += dt; if (floats[i].t > 900) floats.splice(i, 1); }
