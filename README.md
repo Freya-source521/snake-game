@@ -13,7 +13,7 @@
 - **⚪ 围棋** — `go.html`（9/13/19 路，双人/人机，随机执黑白）
 
 ## 🌐 在线试玩
-https://rowan-code963.github.io/snake-game/
+https://freya-source521.github.io/snake-game/
 
 ## 🚀 本地运行
 直接双击任意 `*.html` 即可；主页为 `index.html`。
