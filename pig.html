@@ -570,8 +570,8 @@
         while (next < now + 0.4) {
           var m = MELODY[idx % MELODY.length];
           var b = BASS[idx % BASS.length];
-          if (m > 0) play(m, next, step * 0.9, 'triangle', 0.13);
-          if (b > 0) play(b, next, step * 1.8, 'sine', 0.10);
+          if (m > 0) play(m, next, step * 0.9, 'triangle', 0.2);
+          if (b > 0) play(b, next, step * 1.8, 'sine', 0.15);
           idx++;
           next += step;
         }
@@ -581,7 +581,10 @@
     function setBtn() { var b = document.getElementById('bgm-btn'); if (b) b.textContent = on ? '🎵' : '🔇'; }
     function toggle() {
       ensure();
-      if (on && !timer && audio) { start(); setBtn(); return; }
+      if (on && !(timer && audio && audio.state === 'running')) {
+        if (audio && audio.state === 'suspended') { var p = audio.resume(); if (p && p.catch) p.catch(function(){}); }
+        start(); setBtn(); return;
+      }
       on = !on;
       try { localStorage.setItem(BGM_KEY, on ? '0' : '1'); } catch (e) {}
       if (on) start(); else stop();
@@ -597,9 +600,12 @@
       btn.addEventListener('click', toggle);
       hdr.appendChild(btn);
     }
-    function first(e) { if (e && e.target && e.target.closest && e.target.closest('#bgm-btn')) return; if (on) start(); }
+    function tryStart() { ensure(); if (audio && on) { if (audio.state === 'suspended') { var p = audio.resume(); if (p && p.catch) p.catch(function(){}); } if (!timer) start(); } }
+    function first(e) { if (e && e.target && e.target.closest && e.target.closest('#bgm-btn')) return; tryStart(); }
     document.addEventListener('pointerdown', first, { once: true });
+    document.addEventListener('touchstart', first, { once: true });
     document.addEventListener('keydown', first, { once: true });
+    tryStart();
     window.addEventListener('pagehide', stop);
     setBtn();
   })();
