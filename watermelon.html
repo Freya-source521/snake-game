@@ -206,7 +206,7 @@
   // 位置约束求解: 稳定堆叠、无爆炸抖动、质量加权碰撞 —— 与 Matter.js/Box2D 同思路
   var PHYS_DT = 1 / 120;    // 固定物理步长(秒)
   var SOLVE_ITERS = 8;       // 约束迭代次数
-  var DAMP = 0.995;          // 全局阻尼
+  var DAMP = 0.985;          // 全局阻尼
   function pbdStep(h) {
     // 1) 半隐式积分(重力)
     for (var i = 0; i < fruits.length; i++) {
@@ -243,12 +243,15 @@
         }
       }
     }
-    // 3) 位置差反算速度 + 阻尼 + 地面摩擦
+    // 3) 位置差反算速度 + 阻尼 + 墙壁吸收(不反弹)
     for (var k = 0; k < fruits.length; k++) {
       var f2 = fruits[k];
       f2.vx = (f2.x - f2.px) / h * DAMP;
       f2.vy = (f2.y - f2.py) / h * DAMP;
-      if (f2.y + f2.r >= H - 0.5) f2.vx *= 0.94;   // 地面滚动摩擦
+      if (f2.y + f2.r >= H - 0.5) { if (f2.vy > 0) f2.vy = 0; f2.vx *= 0.94; }
+      if (f2.y - f2.r <= 0.5 && f2.vy < 0) f2.vy = 0;
+      if (f2.x - f2.r <= 0.5 && f2.vx < 0) f2.vx = 0;
+      if (f2.x + f2.r >= W - 0.5 && f2.vx > 0) f2.vx = 0;
       if (Math.abs(f2.vx) < 0.05) f2.vx = 0;
       if (Math.abs(f2.vy) < 0.05) f2.vy = 0;
     }
@@ -282,7 +285,7 @@
             merged = true;
             break;
           }
-          var nf = spawnFruit(t, nx, ny, (A.vx + B.vx) * 0.4, (A.vy + B.vy) * 0.4 - 60);
+          var nf = spawnFruit(t, nx, ny, (A.vx + B.vx) * 0.2, (A.vy + B.vy) * 0.2);
           nf.x = Math.max(nf.r, Math.min(W - nf.r, nf.x));
           nf.y = Math.max(nf.r, Math.min(H - nf.r, nf.y));
           var gain = (t + 1) * 10;
