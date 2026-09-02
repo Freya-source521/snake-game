@@ -125,6 +125,8 @@
   var shift = 0, topPad = 0;
   var over = false;
   var nextId = 1;
+  var actionLog = [];   // 可撤回操作记录
+  var matchTimer = null, loseTimer = null;
 
   // ---------- audio ----------
   function ensureAudio() {
@@ -253,6 +255,9 @@
     cleared = 0;
     toolShuffle = 2; toolRemove = 1;
     over = false;
+    actionLog = [];
+    if (matchTimer) { clearTimeout(matchTimer); matchTimer = null; }
+    if (loseTimer) { clearTimeout(loseTimer); loseTimer = null; }
     clearedEl.textContent = '0';
     levelEl.textContent = level;
     buildBoard();
@@ -315,18 +320,28 @@
     t.el.classList.add('removing');
     var entry = { id: t.id, type: t.type, or: t.r, oc: t.c, ol: t.layer };
     tray.push(entry);
+    actionLog.push({ kind: 'tray', id: t.id });
     sfx.click();
     renderTray();
     layoutTiles();
     // match 3
     var same = tray.filter(function (e) { return e.type === entry.type; });
     if (same.length >= 3) {
-      setTimeout(function () {
+      var ids3 = [same[0].id, same[1].id, same[2].id];
+      matchTimer = setTimeout(function () {
+        matchTimer = null;
         for (var i = 0; i < 3; i++) {
           var e = same[i];
           var ix = tray.indexOf(e);
           if (ix >= 0) tray.splice(ix, 1);
         }
+        // 把 3 次放入合并成一次消除, 撤回可整组还原
+        for (var ci = 0; ci < 3; ci++) {
+          for (var cj = actionLog.length - 1; cj >= 0; cj--) {
+            if (actionLog[cj].kind === 'tray' && actionLog[cj].id === ids3[ci]) { actionLog.splice(cj, 1); break; }
+          }
+        }
+        actionLog.push({ kind: 'match', ids: ids3 });
         cleared++;
         clearedEl.textContent = cleared;
         sfx.match();
@@ -337,7 +352,8 @@
       }, 180);
     } else {
       if (tray.length >= TRAY_CAP) {
-        setTimeout(function () {
+        loseTimer = setTimeout(function () {
+          loseTimer = null;
           over = true;
           sfx.lose();
           showOverlay('🐷 猪栏满了！', '第 <b>' + level + '</b> 关 · 已消除 <b>' + cleared + '</b> 组', '重新开始', false);
@@ -382,17 +398,40 @@
     shuffleBtn.disabled = toolShuffle <= 0;
     removeBtn.disabled = toolRemove <= 0;
   }
+  function restoreTileById(id) {
+    for (var i = 0; i < tiles.length; i++) {
+      if (tiles[i].id === id) {
+        tiles[i].done = false;
+        tiles[i].el.classList.remove('removing');
+        tiles[i].el.style.display = '';
+        return;
+      }
+    }
+  }
   function undo() {
     if (over) return;
-    if (!tray.length) return;
+    // 取消尚未生效的消除/失败判定, 避免撤回后仍被吞牌
+    if (matchTimer) { clearTimeout(matchTimer); matchTimer = null; }
+    if (loseTimer) { clearTimeout(loseTimer); loseTimer = null; }
+    if (!actionLog.length) return;
     ensureAudio();
-    var e = tray.pop();
-    // find the original tile (not done) and restore
-    for (var i = 0; i < tiles.length; i++) {
-      if (tiles[i].id === e.id) { tiles[i].done = false; tiles[i].el.classList.remove('removing'); }
+    var act = actionLog.pop();
+    if (act.kind === 'tray') {
+      // 撤销单次放入: 从托盘移除并还原牌
+      for (var i = tray.length - 1; i >= 0; i--) {
+        if (tray[i].id === act.id) { tray.splice(i, 1); break; }
+      }
+      restoreTileById(act.id);
+    } else if (act.kind === 'match') {
+      // 撤销整组消除: 还原 3 张牌
+      for (var m = 0; m < act.ids.length; m++) restoreTileById(act.ids[m]);
+      cleared--;
+      if (cleared < 0) cleared = 0;
+      clearedEl.textContent = cleared;
     }
     sfx.tool();
     renderTray();
+    renderBank();
     layoutTiles();
     queueSave();
   }
@@ -478,7 +517,16 @@
       boardEl.appendChild(el);
       tiles.push(t);
     }
-    tray = data.tray.map(function (e) { return { type: e.type, or: e.or, oc: e.oc, ol: e.ol }; });
+    tray = data.tray.map(function (e) {
+      var te = { type: e.type, or: e.or, oc: e.oc, ol: e.ol, id: null };
+      for (var k = 0; k < tiles.length; k++) {
+        var tk = tiles[k];
+        if (tk.done && tk.r === e.or && tk.c === e.oc && tk.layer === e.ol) { te.id = tk.id; break; }
+      }
+      return te;
+    });
+    actionLog = [];
+    for (var al = 0; al < tray.length; al++) if (tray[al].id) actionLog.push({ kind: 'tray', id: tray[al].id });
     updateToolBtns();
     layoutTiles();
     renderTray();
@@ -500,7 +548,12 @@
   // ---------- boot ----------
   buildBoard();
   var saved = loadSave();
-  if (saved) {
+  if (saved && saved.over) {
+    // 上一局已结束, 不恢复到空棋盘, 直接开新局
+    clearSave();
+    resetLevel();
+    hideOverlay();
+  } else if (saved) {
     resetLevel();
     showOverlay('检测到存档', '上次玩到第 <b>' + saved.level + '</b> 关，是否继续？',
       '放弃存档，新游戏', true);

@@ -468,7 +468,12 @@
   // ---------- boot ----------
   resize();
   var saved = loadSave();
-  if (saved) {
+  if (saved && saved.over) {
+    // 上一局已结束, 不提供继续以避免恢复到死局
+    clearSave();
+    reset();
+    hideOverlay();
+  } else if (saved) {
     reset();
     showOverlay('检测到存档', '上次下到一半，是否继续？<br/>' + (saved.mode === 'ai'
         ? (saved.current === (saved.humanColor || 1) ? '轮到你落子' : '轮到电脑落子')
