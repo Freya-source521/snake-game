@@ -163,8 +163,10 @@
     var prog = Math.min(1.35, 1 + score / 400);
     f.x = 40 + Math.random() * (W - 80);
     f.y = H + f.r + 8;
-    f.vx = (Math.random() - 0.5) * (110 + 90 * (prog - 1));
-    f.vy = -(640 + Math.random() * 200) * prog;
+    f.vx = (Math.random() - 0.5) * (90 + 60 * (prog - 1));
+    // 限制上抛速度, 让水果最高点不超出画布顶部(保持在框内)
+    var launch = Math.min(880, (640 + Math.random() * 200) * prog);
+    f.vy = -launch;
     f.rot = Math.random() * 6.28;
     f.vr = (Math.random() - 0.5) * 7;
     fruits.push(f);
