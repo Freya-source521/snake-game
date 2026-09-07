@@ -115,7 +115,7 @@
   var BIRD = { r: { c: '#ff5b52', c2: '#b21a14' }, y: { c: '#ffd94d', c2: '#c99a00' }, b: { c: '#7ec8ff', c2: '#2b6fd0' } };
   var PIG = { c: '#93d84a', c2: '#4f8f1d' };
   var PIG_R = 17, KILL_PIG_SPEED = 280;
-  var SLING = { x: 118, y: GROUND - 66 };
+  var SLING = { x: 145, y: GROUND - 66 };
   var LAUNCH_K = 6.2, MAX_SPEED = 1200;
 
   // ===== 游戏状态 =====
@@ -160,9 +160,9 @@
     else if (n === 6) { birds = ['r', 'r', 'y', 'y']; aB(col(360, 3, 'wood')); aP(pcol(360, 3)); aB(col(480, 1, 'wood')); aP(pcol(480, 1)); aP(pground(250)); aP(pground(560)); }
     else if (n === 7) { birds = ['r', 'r', 'r', 'y', 'y']; aB(col(320, 2, 'wood')); aB(col(470, 2, 'wood')); aB(plank(395, 260, 2, 'wood')); aP(pplank(330, 2)); aP(pplank(460, 2)); aP(pground(230)); aP(pground(600)); }
     else if (n === 8) { birds = ['r', 'r', 'r', 'y', 'r']; aB(col(360, 3, 'wood')); aP(pcol(360, 3)); aB(col(470, 1, 'ice')); aP(pcol(470, 1)); aP(pground(260)); aP(pground(560)); aB(col(220, 1, 'wood')); aP(pcol(220, 1)); }
-    else if (n === 9) { birds = ['r', 'r', 'y', 'b', 'r']; aB(col(300, 1, 'wood')); aB(col(440, 1, 'wood')); aB(plank(370, 240, 1, 'wood')); aP(pplank(320, 1)); aP(pplank(420, 1)); aB(col(580, 3, 'ice')); aP(pcol(580, 3)); aP(pground(150)); aP(pground(650)); }
+    else if (n === 9) { birds = ['r', 'r', 'y', 'b', 'r']; aB(col(300, 1, 'wood')); aB(col(440, 1, 'wood')); aB(plank(370, 240, 1, 'wood')); aP(pplank(320, 1)); aP(pplank(420, 1)); aB(col(580, 3, 'ice')); aP(pcol(580, 3)); aP(pground(250)); aP(pground(650)); }
     else if (n === 10) { birds = ['r', 'r', 'y', 'b']; aB(col(340, 2, 'stone')); aP(pcol(340, 2)); aB(col(470, 1, 'stone')); aP(pcol(470, 1)); aB(col(230, 2, 'ice')); aP(pcol(230, 2)); aP(pground(580)); }
-    else if (n === 11) { birds = ['r', 'y', 'b', 'r', 'y']; aB(col(280, 2, 'wood')); aB(col(430, 2, 'stone')); aB(plank(355, 260, 2, 'wood')); aP(pplank(300, 2)); aP(pplank(450, 2)); aB(col(580, 3, 'ice')); aP(pcol(580, 3)); aP(pground(170)); aP(pground(650)); }
+    else if (n === 11) { birds = ['r', 'y', 'b', 'r', 'y']; aB(col(280, 2, 'wood')); aB(col(430, 2, 'stone')); aB(plank(355, 260, 2, 'wood')); aP(pplank(300, 2)); aP(pplank(450, 2)); aB(col(580, 3, 'ice')); aP(pcol(580, 3)); aP(pground(250)); aP(pground(650)); }
     else if (n === 12) { birds = ['y', 'y', 'b', 'r']; aB(col(320, 3, 'stone')); aP(pcol(320, 3)); aB(col(450, 2, 'ice')); aP(pcol(450, 2)); aP(pground(230)); aP(pground(560)); aB(col(200, 1, 'stone')); aP(pcol(200, 1)); }
     else if (n === 13) { birds = ['b', 'b', 'y', 'r', 'r']; aB(col(270, 2, 'stone')); aB(col(400, 2, 'stone')); aB(plank(335, 260, 2, 'wood')); aP(pplank(290, 2)); aP(pplank(380, 2)); aB(col(330, 3, 'ice')); aP(pcol(330, 3)); aP(pground(170)); aP(pground(560)); aP(pground(620)); }
     else if (n === 14) { birds = ['y', 'b', 'y', 'b', 'r']; aB(col(300, 3, 'stone')); aP(pcol(300, 3)); aB(col(440, 1, 'wood')); aB(plank(440, 120, 1, 'ice')); aP(pplank(440, 1)); aB(col(190, 2, 'ice')); aP(pcol(190, 2)); aB(col(520, 2, 'stone')); aP(pcol(520, 2)); aP(pground(560)); aP(pground(640)); }
@@ -174,7 +174,7 @@
       aB(plank(290, 200, 2, 'wood')); aP(pplank(290, 2));
       aB(col(410, 3, 'ice')); aP(pcol(410, 3));
       aB(col(580, 1, 'wood')); aP(pcol(580, 1));
-      aP(pground(150));
+      aP(pground(640));
     }
     return { birds: birds, pigs: pigs, blocks: blocks };
   }
@@ -301,6 +301,9 @@
   }
   function launch() {
     if (!loaded || state !== 'playing') return;
+    if (loaded.y > GROUND - loaded.r) loaded.y = GROUND - loaded.r;
+    if (loaded.x < loaded.r) loaded.x = loaded.r;
+    if (loaded.x > W - loaded.r) loaded.x = W - loaded.r;
     var dx = SLING.x - loaded.x, dy = SLING.y - loaded.y;
     var dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < 14) { loaded.x = SLING.x; loaded.y = SLING.y; return; }
@@ -552,15 +555,16 @@
     var vx = (SLING.x - b.x) * LAUNCH_K, vy = (SLING.y - b.y) * LAUNCH_K;
     var sp = Math.sqrt(vx * vx + vy * vy);
     if (sp > MAX_SPEED) { vx *= MAX_SPEED / sp; vy *= MAX_SPEED / sp; }
-    var x = b.x, y = b.y;
-    var g = GRAV * PSTEP;
+    var tx = b.x, ty = b.y, tvx = vx, tvy = vy;
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    for (var k = 0; k < 60; k++) {
-      vy += g * 8 * PSTEP; // 每个预览步=8个物理步(更密)
-      x += vx * 8 * PSTEP;
-      y += vy * 8 * PSTEP;
-      if (y > GROUND - 2 || x < 0 || x > W) break;
-      ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill();
+    for (var k = 0; k < 96; k++) {
+      for (var s = 0; s < 8; s++) { // 逐子步精确复刻物理
+        tvy += GRAV * PSTEP;
+        tx += tvx * PSTEP; ty += tvy * PSTEP;
+      }
+      if (ty > GROUND - 2) break;
+      if (tx < b.r || tx > W - b.r) break;
+      if (k % 2 === 0) { ctx.beginPath(); ctx.arc(tx, ty, 2.4, 0, Math.PI * 2); ctx.fill(); }
     }
   }
   function drawPower() {
@@ -693,6 +697,9 @@
       var d = Math.hypot(dx, dy), maxd = 122;
       if (d > maxd) { dx *= maxd / d; dy *= maxd / d; }
       loaded.x = SLING.x + dx; loaded.y = SLING.y + dy;
+      if (loaded.y > GROUND - loaded.r) loaded.y = GROUND - loaded.r;
+      if (loaded.x < loaded.r) loaded.x = loaded.r;
+      if (loaded.x > W - loaded.r) loaded.x = W - loaded.r;
     }
     prevP = p;
   });
