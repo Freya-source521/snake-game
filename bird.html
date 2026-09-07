@@ -104,7 +104,7 @@
   var startBtn = document.getElementById('start-btn');
 
   // ===== 物理常量 =====
-  var GRAV = 1000, DAMP = 0.99, ITER = 8, PSTEP = 1 / 120;
+  var GRAV = 800, DAMP = 0.99, ITER = 8, PSTEP = 1 / 120;
 
   // ===== 素材 =====
   var MAT = {
@@ -115,7 +115,7 @@
   var BIRD = { r: { c: '#ff5b52', c2: '#b21a14' }, y: { c: '#ffd94d', c2: '#c99a00' }, b: { c: '#7ec8ff', c2: '#2b6fd0' } };
   var PIG = { c: '#93d84a', c2: '#4f8f1d' };
   var PIG_R = 17, KILL_PIG_SPEED = 280;
-  var SLING = { x: 70, y: GROUND - 66 };
+  var SLING = { x: 118, y: GROUND - 66 };
   var LAUNCH_K = 6.2, MAX_SPEED = 1200;
 
   // ===== 游戏状态 =====
@@ -554,13 +554,13 @@
     if (sp > MAX_SPEED) { vx *= MAX_SPEED / sp; vy *= MAX_SPEED / sp; }
     var x = b.x, y = b.y;
     var g = GRAV * PSTEP;
-    ctx.fillStyle = 'rgba(255,255,255,0.8)';
-    for (var k = 0; k < 42; k++) {
-      vy += g * 16 * PSTEP; // 每个预览步=16个物理步
-      x += vx * 16 * PSTEP;
-      y += vy * 16 * PSTEP;
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    for (var k = 0; k < 60; k++) {
+      vy += g * 8 * PSTEP; // 每个预览步=8个物理步(更密)
+      x += vx * 8 * PSTEP;
+      y += vy * 8 * PSTEP;
       if (y > GROUND - 2 || x < 0 || x > W) break;
-      if (k % 3 === 0) { ctx.beginPath(); ctx.arc(x, y, 2.6, 0, Math.PI * 2); ctx.fill(); }
+      ctx.beginPath(); ctx.arc(x, y, 2.4, 0, Math.PI * 2); ctx.fill();
     }
   }
   function drawPower() {
