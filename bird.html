@@ -104,7 +104,7 @@
   var startBtn = document.getElementById('start-btn');
 
   // ===== 物理常量 =====
-  var GRAV = 600, DAMP = 0.99, ITER = 8, PSTEP = 1 / 120;
+  var GRAV = 200, DAMP = 0.99, ITER = 8, PSTEP = 1 / 120;
 
   // ===== 素材 =====
   var MAT = {
@@ -557,14 +557,15 @@
     if (sp > MAX_SPEED) { vx *= MAX_SPEED / sp; vy *= MAX_SPEED / sp; }
     var tx = b.x, ty = b.y, tvx = vx, tvy = vy;
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    for (var k = 0; k < 96; k++) {
-      for (var s = 0; s < 8; s++) { // 逐子步精确复刻物理
+    for (var k = 0; k < 300; k++) {
+      for (var s = 0; s < 2; s++) { // 每 2 个物理步一个点(低重力下仍密) —— 与真实飞行同公式
         tvy += GRAV * PSTEP;
         tx += tvx * PSTEP; ty += tvy * PSTEP;
       }
-      if (ty > GROUND - 2) break;
+      // 终点 = 小鸟实际落地停靠位置
+      if (ty + b.r >= GROUND) break;
       if (tx < b.r || tx > W - b.r) break;
-      if (k % 2 === 0) { ctx.beginPath(); ctx.arc(tx, ty, 2.4, 0, Math.PI * 2); ctx.fill(); }
+      ctx.beginPath(); ctx.arc(tx, ty, 2.6, 0, Math.PI * 2); ctx.fill();
     }
   }
   function drawPower() {
