@@ -81,7 +81,7 @@
   .grid10{display:grid;grid-template-columns:repeat(10,46px);gap:4px}
   .grid5{display:grid;grid-template-columns:repeat(5,46px);gap:4px}
   .invcol{display:flex;flex-direction:column;gap:8px}
-  #recipes{width:250px;max-height:60vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding-right:2px}
+  #recipes{width:250px;max-height:calc(var(--vh,100vh)*0.6);overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding-right:2px}
   .recipe{display:flex;align-items:center;gap:8px;padding:4px 6px;background:linear-gradient(180deg,#33334a,#24243a);
     border:2px solid;border-color:#5f5f8c #14141f #14141f #5f5f8c;cursor:pointer;color:#e9e6ff;font-size:12.5px;text-align:left}
   .recipe:hover{background:linear-gradient(180deg,#45456a,#2e2e48)}
@@ -108,9 +108,11 @@
   @keyframes rotshake{0%,30%{transform:rotate(90deg)}60%,100%{transform:rotate(0deg)}}
   body.touch.landscape{
     --landscape:1}
-  body.touch.landscape #hotbar{left:50%;bottom:8px;transform:translateX(-50%);display:flex;grid-template-columns:none;gap:3px;padding:4px}
-  body.touch.landscape #hotbar .slot{width:38px;height:38px}
-  body.touch.landscape #hotbar .slot canvas{width:30px;height:30px;margin:2px}
+  body.touch.landscape #hotbar{left:50%;bottom:8px;transform:translateX(-50%);display:flex;grid-template-columns:none;gap:3px;padding:4px;max-width:calc(100vw - 260px)}
+  body.touch.landscape #hotbar .slot{width:min(38px,4.2vw);height:min(38px,4.2vw)}
+  body.touch.landscape #hotbar .slot canvas{width:calc(100% - 4px);height:calc(100% - 4px);margin:2px}
+  body.touch.landscape #hotbar .slot .ct{font-size:10px}
+  body.touch.landscape #hotbar .slot .key{font-size:8px}
   body.touch.landscape #worldinfo{left:8px;top:52px;bottom:auto;max-width:26vw;font-size:10.5px}
   body.touch.landscape #topbtns{flex-direction:row;gap:5px;align-items:center}
   body.touch.landscape #topbtns .btn{padding:4px 7px;font-size:11px}
@@ -127,13 +129,13 @@
   body.touch.landscape .card-box{padding:12px;gap:8px;margin:auto}
   body.touch.landscape #charprev,body.touch.landscape #worldprev{width:126px;height:132px}
   body.touch.landscape .panelwrap{top:4px;left:50%;transform:translateX(-50%);flex-wrap:wrap;justify-content:center;align-items:flex-start;
-    max-height:calc(100vh - 8px);overflow-y:auto;overflow-x:hidden;max-width:100vw;gap:8px}
+    max-height:calc(var(--vh,100vh) - 8px);overflow-y:auto;overflow-x:hidden;max-width:100vw;gap:8px}
   body.touch.landscape .panel{padding:8px}
   body.touch.landscape .panelwrap .slot{width:38px;height:38px}
   body.touch.landscape .panelwrap .slot canvas{width:30px;height:30px;margin:2px}
   body.touch.landscape .grid10{grid-template-columns:repeat(10,42px);gap:3px}
   body.touch.landscape .grid5{grid-template-columns:repeat(5,42px);gap:3px}
-  body.touch.landscape .scroll{max-height:34vh}
+  body.touch.landscape .scroll{max-height:calc(var(--vh,100vh)*0.34)}
   body.touch.landscape .kv{font-size:12px;gap:3px 10px}
   #loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#05060b;z-index:50}
   #loading .track{width:min(460px,80vw);height:20px;background:#16162a;border:3px solid;border-color:#5f5f8c #0d0d14 #0d0d14 #5f5f8c}
@@ -144,7 +146,7 @@
   .shopitem canvas{position:static;width:34px;height:34px;cursor:pointer}
   .shopitem .sn{flex:1;font-size:12.5px}
   .coin{color:#f0d17a;font-size:12px}
-  .scroll{max-height:50vh;overflow-y:auto;width:340px}
+  .scroll{max-height:calc(var(--vh,100vh)*0.5);overflow-y:auto;width:340px}
   #charprev,#worldprev{width:170px;height:190px;background:#0d0f18;border:3px solid;border-color:#5f5f8c #101018 #101018 #5f5f8c}
   .slider{width:190px}
   .keyhint{font-size:12px;color:#b9b6dd;line-height:2;text-align:left}
@@ -191,6 +193,7 @@
   <h2>请横屏游玩</h2>
   <div class="tip" id="rotatetip">本游戏为横屏体验：点下面的按钮进入全屏横屏。<br/>如果手机仍然竖着，请手动旋转设备。</div>
   <button class="btn" id="btn-rotate">进入全屏横屏</button>
+  <button class="btn small" id="btn-force">已经是横屏 · 直接继续</button>
 </div>
 <div id="loading"><h2 class="sub" id="loadtxt">正在生成世界…</h2><div class="track"><i id="loadbar"></i></div><div class="tip" id="loadtip"></div></div>
 
@@ -2046,11 +2049,15 @@ function checkRoom(sx,sy){const seen={};const q=[[sx,sy]];const cells=[];let min
   const ok=!leak&&cells.length>=18&&area>=20&&area<=360&&hasChair&&hasTable&&hasLight&&(hasDoor||cells.length>40)&&hasWallCount>cells.length*0.85;
   return {ok:ok,cells:cells,minx:minx,maxx:maxx,miny:miny,maxy:maxy,floor:{x:floor((minx+maxx)/2),y:maxy}};}
 function findRoomFor(){const rnd=mulberry32(W.seedN+W.tick);
-  const pl=G.player;for(let a=0;a<400;a++){const x=rint(rnd,max(4,(pl.x/TS|0)-90),min(W.w-5,(pl.x/TS|0)+90)),y=rint(rnd,4,W.h-6);
-    if(til(x,y)!==0)continue;const r=checkRoom(x,y);if(r.ok){
-      const used=G.npc.some(n=>n.home&&abs(n.home.x-r.floor.x)<2&&abs(n.home.y-r.floor.y)<2);if(used)continue;
-      const alsoPlayer=dist(r.floor.x*TS,r.floor.y*TS,pl.x,pl.y)<40;if(alsoPlayer)continue;
-      return r;}}return null;}
+  const pl=G.player;const pcx=pl.x/TS|0,pcy=pl.y/TS|0;
+  const tryAt=(x,y)=>{if(!inW(x,y)||y<3||y>W.h-3)return null;if(til(x,y)!==0)return null;
+    const r=checkRoom(x,y);if(!r.ok)return null;
+    const used=G.npc.some(n=>n.home&&abs(n.home.x-r.floor.x)<2&&abs(n.home.y-r.floor.y)<2);if(used)return null;
+    if(dist(r.floor.x*TS,r.floor.y*TS,pl.x,pl.y)<40)return null;return r;};
+  for(const dx of [-10,-6,-2,2,6,10])for(const dy of [-8,-4,0,4]){const r=tryAt(pcx+dx,pcy+dy);if(r)return r;}
+  for(let a=0;a<400;a++){const x=rint(rnd,max(4,pcx-90),min(W.w-5,pcx+90)),y=rint(rnd,4,W.h-6);
+    const r=tryAt(x,y);if(r)return r;}
+  return null;}
 function updateNPCsSpawn(dt){G.npcT=(G.npcT||0)-dt;if(G.npcT>0)return;G.npcT=4;
   for(const type in NPCDEF){const d=NPCDEF[type];if(G.npc.some(n=>n.type===type&&!n.dead))continue;
     if(!d.cond())continue;if(d.always){continue;}
@@ -2143,7 +2150,8 @@ function say(txt){const el=document.getElementById("dialog");if(!el)return;el.in
 function dropItemAtPlayer(id,c){const pl=G.player;dropItem(pl.x,pl.y,id,c);}
 const CV=document.getElementById("cv");let ctx=cx2(CV);
 let VW=0,VH=0,DPR=1;
-function resize(){DPR=min(2,window.devicePixelRatio||1);const w=window.innerWidth,h=window.innerHeight;
+function resize(){DPR=min(2,window.devicePixelRatio||1);const w=Math.max(1,Math.round(window.innerWidth||1)),h=Math.max(1,Math.round(window.innerHeight||1));
+  document.documentElement.style.setProperty("--vh",h+"px");
   CV.width=floor(w*DPR);CV.height=floor(h*DPR);CV.style.width=w+"px";CV.style.height=h+"px";ctx=cx2(CV);VW=CV.width;VH=CV.height;}
 window.addEventListener("resize",()=>{resize();updateOrientation();});
 window.addEventListener("orientationchange",()=>setTimeout(updateOrientation,220));
@@ -2295,6 +2303,12 @@ function drawParallaxWeather(){const z=G.cam.zoom;
 function whiteMask(c){const w=cvs(c.width,c.height),g=cx2(w);g.drawImage(c,0,0);g.globalCompositeOperation="source-atop";
   g.fillStyle="#ffffff";g.fillRect(0,0,c.width,c.height);return w;}
 function A(key){const a=ART[key];if(!a)return null;if(!a.wm){a.wm=a.f.map(whiteMask);}return a;}
+function artBottomRow(a,frame){if(!a)return 0;
+  if(!a._brs){const arr=[];for(const f of (a.f||[])){const w=f.width,h=f.height;let br=0;
+    try{const g=f.getContext("2d");const d=g.getImageData(0,0,w,h).data;
+      for(let y=h-1;y>=0;y--){let hit=false;for(let x=0;x<w;x++){if(d[(y*w+x)*4+3]>8){hit=true;break;}}if(hit){br=y;break;}}}catch(e){br=(a.h||h)-1;}
+    arr.push(br);}a._brs=arr;}
+  const n=a._brs.length||1;const i=((frame|0)%n+n)%n;return a._brs[i]||0;}
 function drawArt(g,key,frame,x,y,scale,flip,white,alpha){const a=A(key);if(!a)return;const f=(white?a.wm:a.f)[((frame|0)%a.n+a.n)%a.n];
   const w=a.w*scale,h=a.h*scale;g.save();if(alpha!=null)g.globalAlpha=alpha;
   if(flip){g.translate(floor(x+w),floor(y));g.scale(-1,1);g.drawImage(f,0,0,w,h);}else g.drawImage(f,floor(x),floor(y),w,h);
@@ -2336,22 +2350,25 @@ function drawEntities(pl){const z=G.cam.zoom;const toS=(wx,wy)=>[floor((wx)*z-ca
     if(d.c>1||it.t==="coin"){ctx.font=(9*DPR)+"px monospace";ctx.fillStyle="#fff";ctx.strokeStyle="#000";ctx.lineWidth=2*DPR;
       ctx.strokeText(d.c,sx+4*z,sy+14*z+bob);ctx.fillText(d.c,sx+4*z,sy+14*z+bob);}
     ctx.drawImage(itemIconCanvas(it,16),sx,sy+bob,16*z,16*z);}
-  for(const n of G.npc){const [sx,sy]=toS(n.x-2,n.y-2);const key="npc_"+n.type;
-    ctx.save();ctx.globalAlpha=.35;ctx.fillStyle="#000";ctx.fillRect(sx+2*z,sy+24*z,14*z,3*z);ctx.restore();
-    drawArt(ctx,key,n.frame||0,sx,sy,1+(z*(2/16)),null,n.hurtT>0);
+  for(const n of G.npc){const [sx,sy]=toS(n.x-2,n.y+2);const key="npc_"+n.type;
+    ctx.save();ctx.globalAlpha=.35;ctx.fillStyle="#000";ctx.fillRect(sx+2*z,sy+23*z,14*z,3*z);ctx.restore();
+    drawArt(ctx,key,n.frame||0,sx,sy,z,null,n.hurtT>0);
     const [lx,ly]=toS(n.x,n.y-10);
     if(!n.home){ctx.fillStyle="#ffd070";ctx.font=(11*DPR)+"px monospace";ctx.fillText("!",lx,ly);}}
-  for(const e of G.ent){if(e.dead)continue;const [sx,sy]=toS(e.x-(e.art==="eyeOfCthulhu"?4:2),e.y-(e.art==="wallOfFlesh"?0:2));
-    const sc=(e.w/(ART[e.art]?ART[e.art].w:20))*(z);
-    drawArt(ctx,e.art,e.frame!=null?e.frame:(e.animT*6|0),sx,sy,sc,e.vx<0,e.hurtT>0,e.dead?0.5:1);
+  for(const e of G.ent){if(e.dead)continue;const ea=A(e.art);const efr=e.frame!=null?e.frame:(e.animT*6|0);
+    let sc=(e.w/(ea?ea.w:20))*(z),wx=e.x-(e.art==="eyeOfCthulhu"?4:2),wy=e.y-(e.art==="wallOfFlesh"?0:2);
+    if(!e.boss&&ea&&ea.w>0&&ea.h>0){const unit=max(e.w/ea.w,e.h/ea.h);sc=unit*z;
+      wx=e.x+e.w/2-ea.w*unit/2;wy=(e.y+e.h)-(artBottomRow(ea,efr)+1)*unit;}
+    const [sx,sy]=toS(wx,wy);
+    drawArt(ctx,e.art,efr,sx,sy,sc,e.vx<0,e.hurtT>0,e.dead?0.5:1);
     if(e.hurtT>0){/* flash */}}
   if(pl.grapple){const [sx,sy]=toS(pl.grapple.x,pl.grapple.y);ctx.strokeStyle="#c8c8d8";ctx.lineWidth=2*DPR;
     ctx.beginPath();ctx.moveTo((pl.x+pl.w/2)*z-cam.x*z,(pl.y+pl.h/2)*z-cam.y*z);ctx.lineTo(sx,sy);ctx.stroke();
     ctx.fillStyle="#8a8a9a";ctx.fillRect(sx-3*z,sy-3*z,6*z,6*z);}
   for(const p of G.proj){const [sx,sy]=toS(p.x,p.y);drawProj(p,sx,sy,z);}
-  for(const m of G.minions){const [sx,sy]=toS(m.x,m.y);
-    const key=m.kind==="impMinion"?"imp":(m.kind==="hornetMinion"?"hornet":"slimeGreen");
-    drawArt(ctx,key,0,sx,sy,z*0.7,-1,false,0.9);
+  for(const m of G.minions){const key=m.kind==="impMinion"?"imp":(m.kind==="hornetMinion"?"hornet":"slimeGreen");
+    const A0=A(key);const msc=(m.w/(A0?A0.w:18))*z;const [sx,sy]=toS(m.x,m.y+m.h-(A0?A0.h*msc/z:0));
+    drawArt(ctx,key,0,sx,sy,msc,-1,false,0.9);
     ctx.globalCompositeOperation="lighter";ctx.globalAlpha=.3;ctx.drawImage(GLOWS.purple,sx-10*z,sy-10*z,20*z,20*z);
     ctx.globalCompositeOperation="source-over";ctx.globalAlpha=1;}
   drawPlayer(pl,z,toS);
@@ -2382,11 +2399,16 @@ function drawProj(p,sx,sy,z){const s=z;ctx.save();ctx.translate(sx,sy);ctx.rotat
   if(p.light){ctx.globalCompositeOperation="lighter";ctx.globalAlpha=.35;const sz=60*z;
     ctx.drawImage(GLOWS.warm,sx-sz/2,sy-sz/2,sz,sz);ctx.globalCompositeOperation="source-over";ctx.globalAlpha=1;}}
 function drawPlayer(pl,z,toS){if(pl.dead)return;
-  bakePlayerArt(pl);const [sx,sy]=toS(pl.x-3,pl.y-3);const sc=1+(z*(2/16));
+  bakePlayerArt(pl);const sc=z;
   let f=pl.frame;if(pl.inLiquid) f=7;else if(pl.swing>0.16)f=5;else if(pl.swing>0)f=6;else if(!pl.onGround)f=3;
   else if(abs(pl.vx)>12)f=1+(floor(pl.walkT)%2);else f=0;
-  ctx.save();if(pl.hurtT>0&&floor(pl.hurtT*20)%2===0)ctx.globalAlpha=0.55;
   const art=pl._art[f]||pl._art[0];
+  const footRow=24;
+  const [sx,sy]=toS(pl.x+pl.w/2-art.width/2,pl.y+pl.h-footRow);
+  ctx.save();if(pl.hurtT>0&&floor(pl.hurtT*20)%2===0)ctx.globalAlpha=0.55;
+  const [sxs,sys]=toS(pl.x+pl.w/2-7,pl.y+pl.h-2);
+  ctx.globalAlpha=(ctx.globalAlpha||1)*(pl.onGround?0.28:0.14);ctx.fillStyle="#000";
+  ctx.fillRect(sxs,sys,14*z,3*z);ctx.globalAlpha=pl.hurtT>0&&floor(pl.hurtT*20)%2===0?0.55:1;
   if(pl.dir<0){ctx.translate(floor(sx+art.width*sc),floor(sy));ctx.scale(-1,1);ctx.drawImage(art,0,0,art.width*sc,art.height*sc);}
   else ctx.drawImage(art,floor(sx),floor(sy),art.width*sc,art.height*sc);
   ctx.restore();
@@ -2737,33 +2759,68 @@ function startNewWorld(cfg){initWorld(cfg.size,cfg.diff,cfg.seed);
 function startPlaying(loaded){showScreen(null);$("scr-create").classList.add("hidden");$("loading").style.display="none";$("stats").classList.remove("hidden");$("hotbar").classList.remove("hidden");$("worldinfo").classList.remove("hidden");
   $("minimap").classList.remove("hidden");$("topbtns").classList.remove("hidden");
   if(isTouch)$("touch").style.display="block";
+  if(isTouch)updateOrientation(true);
   refreshHotbar();Audio2.resume();Audio2.setVolume(Audio2.getVolume());Audio2.play(biomeMusic());
   if(!loaded&&G.player)saveGame(true);}
 let isTouch=false;
 let landscapeWanted=false;
-function needLandscape(){return isTouch&&window.innerHeight>window.innerWidth;}
-function updateOrientation(){
-  const r=$("rotate");if(!r)return;
-  const flip=isTouch&&window.innerHeight>window.innerWidth;
-  r.style.display=flip?"flex":"none";
-  if(document.body)document.body.classList.toggle("landscape",isTouch&&!flip);
-  const tip=$("rotatetip");
-  if(tip&&flip){const can=!!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
-    tip.innerHTML=(can?"点下面的按钮进入全屏横屏。<br/>":"")+"如果手机仍然竖着，请手动把设备横过来。";}
-  if(!flip&&G.screen==="play")resize();
-}
-function requestLandscape(){
-  landscapeWanted=true;const el=document.documentElement;const goLock=()=>{
-    try{if(screen.orientation&&screen.orientation.lock)return screen.orientation.lock("landscape").catch(()=>{});}catch(e){}
+let forceLandscape=false;
+let lastOrientFlip=null;
+function oMetrics(){const vv=window.visualViewport;let type="",angle=-1;
+  try{if(window.screen&&screen.orientation){type=screen.orientation.type||"";angle=screen.orientation.angle;}}catch(e){}
+  let mqP=false,mqL=false;
+  try{mqP=matchMedia("(orientation:portrait)").matches;mqL=matchMedia("(orientation:landscape)").matches;}catch(e){}
+  return {iw:window.innerWidth||0,ih:window.innerHeight||0,vw:(vv&&vv.width)||0,vh:(vv&&vv.height)||0,
+    sw:(window.screen&&screen.width)||0,sh:(window.screen&&screen.height)||0,type:type,angle:angle,mqP:mqP,mqL:mqL,
+    fs:!!(document.fullscreenElement||document.webkitFullscreenElement)};}
+function aspVote(w,h){if(!(w>0)||!(h>0))return 0;const r=h/w;if(r>1.06)return -1;if(r<0.94)return 1;return 0;}
+function portraitNow(){const m=oMetrics();let s=aspVote(m.iw,m.ih)*3;
+  if(m.vw&&m.vh)s+=aspVote(m.vw,m.vh)*2;
+  if(m.sw&&m.sh)s+=aspVote(m.sw,m.sh)*0.5;
+  const ty=/portrait/i.test(m.type)?"p":(/landscape/i.test(m.type)?"l":"");
+  if(ty==="p")s-=2;else if(ty==="l")s+=2;else if(m.mqP)s-=1;else if(m.mqL)s+=1;
+  if(ty!=="p"&&(m.angle===90||m.angle===270))s+=2;
+  return s<0;}
+function needLandscape(){if(!isTouch||forceLandscape)return false;return portraitNow();}
+function updateOrientation(force){const r=$("rotate");if(!r)return;
+  const flip=needLandscape();
+  if(force||flip!==lastOrientFlip){
+    lastOrientFlip=flip;
+    r.style.display=flip?"flex":"none";
+    if(document.body)document.body.classList.toggle("landscape",isTouch&&!flip);
+    if(flip){const tip=$("rotatetip");
+      if(tip){const can=!!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
+        tip.innerHTML=(can?"点下面的按钮进入全屏横屏。":"")+"如果手机仍然竖着，请手动把设备横过来。";}}
+    resize();
+  }}
+let orientTimers=[];
+function scheduleOrientation(){[0,180,420,900,1600,2600].forEach(ms=>{orientTimers.push(setTimeout(()=>updateOrientation(),ms));});
+  while(orientTimers.length>36)clearTimeout(orientTimers.shift());}
+function initOrientationWatch(){
+  window.addEventListener("resize",scheduleOrientation);
+  window.addEventListener("orientationchange",scheduleOrientation);
+  window.addEventListener("pageshow",scheduleOrientation);
+  window.addEventListener("fullscreenchange",scheduleOrientation);
+  window.addEventListener("webkitfullscreenchange",scheduleOrientation);
+  if(window.visualViewport){window.visualViewport.addEventListener("resize",scheduleOrientation);window.visualViewport.addEventListener("scroll",scheduleOrientation);}
+  try{matchMedia("(orientation:portrait)").addEventListener("change",scheduleOrientation);}catch(e){}
+  setInterval(()=>updateOrientation(),1500);
+  document.addEventListener("touchstart",()=>{if(!isTouch){detectTouch();scheduleOrientation();}},{passive:true,once:true});}
+function requestLandscape(){landscapeWanted=true;const el=document.documentElement;
+  const lock=()=>{try{if(screen.orientation&&screen.orientation.lock)return Promise.resolve(screen.orientation.lock("landscape")).catch(()=>{});}catch(e){}
     return Promise.resolve();};
-  const after=()=>setTimeout(updateOrientation,450);
+  let p=Promise.resolve();
   try{
-    if(el.requestFullscreen)return el.requestFullscreen({navigationUI:"hide"}).catch(()=>el.requestFullscreen().catch(()=>{})).then(goLock).then(after);
-    if(el.webkitRequestFullscreen){el.webkitRequestFullscreen();return goLock().then(after);}
-  }catch(e){}
-  return goLock().then(after);
-}
-function detectTouch(){isTouch=("ontouchstart" in window)||navigator.maxTouchPoints>0||matchMedia("(pointer:coarse)").matches;document.body.classList.toggle("touch",isTouch);if(isTouch)$("touch").style.display=G.screen==="play"?"block":"none";updateOrientation();}
+    if(el.requestFullscreen)p=el.requestFullscreen({navigationUI:"hide"}).catch(()=>el.requestFullscreen().catch(()=>{})).then(lock);
+    else if(el.webkitRequestFullscreen){el.webkitRequestFullscreen();p=lock();}
+    else p=lock();
+  }catch(e){p=Promise.resolve();}
+  Promise.resolve(p).catch(()=>{}).then(()=>{scheduleOrientation();
+    setTimeout(()=>{const tip=$("rotatetip");if(tip&&needLandscape())tip.innerHTML="当前浏览器不支持自动横屏，请手动把设备横过来。";},1400);});
+  return false;}
+function detectTouch(){const ua=navigator.userAgent||"";
+  isTouch=("ontouchstart" in window)||(navigator.maxTouchPoints||0)>0||(window.matchMedia&&matchMedia("(pointer:coarse)").matches)||/Android|iPhone|iPad|iPod|Mobile|HarmonyOS|Harmony|Silk|Kindle/i.test(ua);
+  document.body.classList.toggle("touch",isTouch);if(isTouch)$("touch").style.display=G.screen==="play"?"block":"none";updateOrientation(true);}
 function bindInput(){
   window.addEventListener("keydown",e=>{if(e.code==="F5")return;
     G.keys[e.code]=true;
@@ -2811,6 +2868,7 @@ function bindInput(){
   $("b-totitle").addEventListener("click",()=>toTitle());
   $("b-help").addEventListener("click",showHelp);$("b-settings").addEventListener("click",()=>showSettings(false));
   const br=$("btn-rotate");if(br)br.addEventListener("click",()=>{Audio2.resume();requestLandscape();});
+  const bf=$("btn-force");if(bf)bf.addEventListener("click",()=>{forceLandscape=true;lastOrientFlip=null;updateOrientation(true);if(G.screen==="play")resize();});
   $("b-newchar").addEventListener("click",()=>{if(isTouch&&needLandscape())requestLandscape();});
   $("b-continue").addEventListener("click",()=>{if(isTouch&&needLandscape())requestLandscape();});
   $("b-continue").addEventListener("click",()=>{Audio2.resume();loadGame(ok=>{if(!ok)say("没有可用的存档");});});
@@ -2886,7 +2944,7 @@ function loop(t){requestAnimationFrame(loop);const dt=min(0.05,max(0.0005,(t-las
   }catch(err){console.error(err);if(!G.errShown){G.errShown=true;say("运行错误："+(err&&err.message||err));}}
   updateHUD();}
 function initGame(){resize();bakeEnemies();bakeAllTiles();bakeWallTex();bakeGlows();bakeCelestial();bakeItemIcons();bakeNPCS();
-  bindInput();detectTouch();showScreen("scr-title");updateTitle();
+  bindInput();detectTouch();initOrientationWatch();showScreen("scr-title");updateTitle();
   document.addEventListener("mousedown",()=>{Audio2.resume();if(!Audio2.current())Audio2.play(G.player?biomeMusic():"day");},{once:false});
   document.addEventListener("touchstart",()=>{Audio2.resume();if(!Audio2.current())Audio2.play(G.player?biomeMusic():"day");},{passive:true});
   requestAnimationFrame(loop);}
@@ -2900,7 +2958,8 @@ window.__terra={G:G,W:W,TILE:TILE,TID:TID,ITEMS:ITEMS,RECIPES:RECIPES,startNewWo
   mining:()=>{const pl=G.player;const tx=floor(G.mouse.world.x/TS),ty=floor(G.mouse.world.y/TS);mineTile(tx,ty,0.5);},
   breakAt:(tx,ty)=>breakTile(tx,ty,"pick"),placeAt:(id,tx,ty)=>placeBlock(id,tx,ty),stationNear:stationNear,checkRoom:checkRoom,
   findRoomFor:findRoomFor,startInvasion:startInvasion,meteorLand:meteorLand,shatterOrb:shatterOrb,startHardmode:startHardmode,
-  respawn:respawn,openChestAt:openChestAt,openShop:openShop,pickups:()=>G.drops.map(d=>d.id),npcList:()=>G.npc.map(n=>n.type)};
+  respawn:respawn,openChestAt:openChestAt,openShop:openShop,pickups:()=>G.drops.map(d=>d.id),npcList:()=>G.npc.map(n=>n.type),
+  oMetrics:oMetrics,portraitNow:portraitNow,updateOrientation:updateOrientation,resize:resize,isTouch:()=>isTouch,ART:ART,artBottomRow:artBottomRow};
 initGame();
 </script>
 </body>
