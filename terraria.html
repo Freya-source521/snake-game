@@ -2697,7 +2697,7 @@ function detectTouch(){isTouch=("ontouchstart" in window)||navigator.maxTouchPoi
 function bindInput(){
   window.addEventListener("keydown",e=>{if(e.code==="F5")return;
     G.keys[e.code]=true;
-    if(e.code==="Escape"){if(G.uiOpen||G.chestOpen||G.npcTalk)closePanels();else togglePause();e.preventDefault();}
+    if(e.code==="Escape"){if(G.uiOpen||G.chestOpen||G.npcTalk||G.shopOpen)closePanels();else togglePause();e.preventDefault();}
     else if(e.code==="KeyB"||e.code==="Tab"){e.preventDefault();toggleInv();}
     else if(e.code==="KeyC"){e.preventDefault();toggleInv("craft");}
     else if(e.code==="KeyM"){e.preventDefault();toggleMap();}
