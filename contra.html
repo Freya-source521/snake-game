@@ -2,17 +2,18 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover" />
+<meta name="theme-color" content="#05070c" />
 <title>魂斗罗 · 丛林堡垒 | CONTRA JUNGLE FORTRESS</title>
 <link rel="icon" href="./favicon.svg" />
 <style>
-  :root{ --ink:#e8ecff; --dim:#8a92b8; --acc:#ffcf4d; --acc2:#ff5a3c; }
+  :root{ --ink:#e8ecff; --dim:#8a92b8; --acc:#ffcf4d; --acc2:#ff5a3c; --lw:100vw; --lh:100vh; --vh:100vh; }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;overflow:hidden;background:#05070c}
   body{display:flex;align-items:center;justify-content:center;font-family:"Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;color:var(--ink)}
   #stage{position:relative;line-height:0;box-shadow:0 0 0 2px #1b2130,0 24px 70px rgba(0,0,0,.75)}
   #cv{display:block;image-rendering:pixelated;image-rendering:crisp-edges;background:#0a0f14}
-  .ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;
+  .ov{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;
       background:linear-gradient(180deg,rgba(6,8,14,.86),rgba(6,8,14,.94));text-align:center;padding:18px;line-height:1.5}
   .ov.hide{display:none}
   .ttl{font-size:34px;font-weight:900;letter-spacing:6px;color:#ffe08a;text-shadow:0 0 0 #000,3px 3px 0 #7a2b12,6px 6px 0 rgba(0,0,0,.6)}
@@ -32,8 +33,28 @@
   #loadbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ffcf4d,#ff5a3c)}
   .blink{animation:bk 1s steps(2,end) infinite}
   @keyframes bk{50%{opacity:.25}}
+  /* ---- 横屏 / 强制旋转（与泰拉瑞亚手机端同一套方案） ---- */
+  html.rotmode{overflow:hidden;background:#05070c;height:var(--lh)}
+  html.rotmode body{position:fixed;left:0;top:0;width:var(--lw);height:var(--lh);overflow:hidden;transform-origin:0 0}
+  html.rotmode.rotA body{transform:translateY(var(--lw)) rotate(-90deg)}
+  html.rotmode.rotB body{transform:translateX(var(--lh)) rotate(90deg)}
+  #rotflip{position:absolute;left:50%;top:4px;transform:translateX(-50%);z-index:320;display:none;
+    font:700 11px/1 "Segoe UI",system-ui,sans-serif;color:#fff;background:rgba(20,26,40,.88);
+    border:2px solid rgba(150,175,225,.6);border-radius:4px;padding:6px 10px;letter-spacing:1px;cursor:pointer}
+  html.rotmode #rotflip{display:block}
+  /* 手机全屏铺满（泰拉瑞亚手机端同款铺满方式） */
+  body.touch #stage{position:fixed;inset:0;width:100%;height:100%;box-shadow:none}
+  body.touch #cv{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+  body.touch .ov{padding:10px 14px;gap:9px}
+  body.touch .ttl{font-size:min(30px,calc(var(--lw)*.055));letter-spacing:4px}
+  body.touch .keys{font-size:11.5px}
+  body.touch.landscape #tPad{left:calc(2% + env(safe-area-inset-left,0px));bottom:calc(5% + env(safe-area-inset-bottom,0px));width:21%;padding-top:21%}
+  body.touch.landscape #tPad .tbtn{font-size:min(16px,2.2vw)}
+  body.touch.landscape #tFire{right:calc(3% + env(safe-area-inset-right,0px));bottom:calc(7% + env(safe-area-inset-bottom,0px));width:12.5%;padding-top:12.5%;font-size:min(14px,2vw)}
+  body.touch.landscape #tJump{right:calc(17.5% + env(safe-area-inset-right,0px));bottom:calc(20% + env(safe-area-inset-bottom,0px));width:11.5%;padding-top:11.5%;font-size:min(14px,2vw)}
+  body.touch.landscape #tPause{right:calc(2% + env(safe-area-inset-right,0px));top:calc(2.5% + env(safe-area-inset-top,0px));width:6%;padding-top:6%}
   /* ---- 触屏操作层 ---- */
-  #touch{position:absolute;inset:0;pointer-events:none;display:none;touch-action:none;
+  #touch{position:absolute;inset:0;pointer-events:none;display:none;touch-action:none;z-index:12;
          -webkit-user-select:none;user-select:none}
   #touch.on{display:block}
   .tbtn{position:absolute;pointer-events:auto;font:700 13px/1 "Segoe UI",system-ui,sans-serif;color:#eaf2ff;
@@ -51,9 +72,16 @@
   #tFire{right:3%;bottom:6%;width:12%;padding-top:12%;background:rgba(190,50,40,.48);border-color:rgba(255,170,150,.65)}
   #tJump{right:16.5%;bottom:19%;width:11%;padding-top:11%}
   #tPause{right:2.5%;top:3.5%;width:5.5%;padding-top:5.5%;font-size:11px}
-  #rotate{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;
-          background:rgba(6,8,14,.94);color:#ffe08a;font-size:15px;letter-spacing:2px;text-align:center;padding:20px;z-index:9}
-  @media (orientation:portrait) and (max-width:900px){ #rotate.show{display:flex} }
+  #rotate{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;
+          background:radial-gradient(900px 620px at 50% 32%,#131a2c 0%,#05070c 72%);color:#ffe08a;font-size:15px;
+          letter-spacing:2px;text-align:center;padding:22px;z-index:300;line-height:1.5}
+  #rotate .ph{width:58px;height:100px;border:4px solid #6d7ba0;border-radius:12px;position:relative;animation:rotshake 2.4s ease-in-out infinite}
+  #rotate .ph:after{content:"";position:absolute;left:50%;top:7px;width:22px;height:4px;margin-left:-11px;border-radius:2px;background:#6d7ba0}
+  @keyframes rotshake{0%,30%{transform:rotate(90deg)}60%,100%{transform:rotate(0deg)}}
+  #rotate .rt{font-size:19px;font-weight:800;letter-spacing:4px;color:#ffe9a8}
+  #rotatetip{font-size:12px;color:#9fb0d8;letter-spacing:1px;line-height:1.7}
+  #rotdiag{font-size:11px;color:#8f98b8;letter-spacing:0;line-height:1.7}
+  #rotate .k{font-size:13px}
 </style>
 </head>
 <body>
@@ -137,13 +165,22 @@
     <button class="tbtn" id="tFire" data-k="KeyX">射击</button>
     <button class="tbtn" id="tPause" data-k="Escape">‖</button>
   </div>
-  <div id="rotate">请把手机横过来<br><span style="font-size:12px;color:#9fb0d8">横屏体验最佳 · 支持触屏操作</span></div>
+  <div id="rotate">
+    <div class="ph"></div>
+    <div class="rt">请 横 屏 游 玩</div>
+    <div id="rotatetip">本游戏为横屏体验：点下面的按钮进入全屏横屏。<br>如果手机仍然竖着，请手动旋转设备。</div>
+    <button class="k pri" id="btn-rotate">进入全屏横屏</button>
+    <button class="k" id="btn-forcerot">强制横屏显示（画面自动旋转 90°）</button>
+    <button class="k" id="btn-force">已经是横屏 · 直接继续</button>
+    <div id="rotdiag"></div>
+  </div>
 
   <div class="ov hide" id="ovLoad">
     <div class="sub" style="letter-spacing:4px">部署中…</div>
     <div id="loadbar"><i></i></div>
   </div>
 </div>
+<button id="rotflip">⟳ 换个方向</button>
 <script>
 "use strict";
 (function(){
@@ -168,18 +205,166 @@ function rectHit(x,y,w,h,r){ return x < r.x+r.w && r.x < x+w && y < r.y+r.h && r
 function dist(ax,ay,bx,by){ var dx=ax-bx, dy=ay-by; return Math.sqrt(dx*dx+dy*dy); }
 function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; var t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
 
+/* ---------- 横屏 / 屏幕自适应（对齐泰拉瑞亚手机端方案） ---------- */
+var ROT = { on:false, dir:1 };
+try { var _rd = parseInt(localStorage.getItem("contra.rotDir")||"",10); if (_rd===1 || _rd===-1) ROT.dir = _rd; } catch(e){}
+var isTouch = false, landscapeWanted = false, forceLandscape = false, lastOrientFlip = null;
+function logicalSize(){
+  var iw = Math.max(1, Math.round(window.innerWidth||1)), ih = Math.max(1, Math.round(window.innerHeight||1));
+  if (ROT.on) return { w:ih, h:iw };
+  return { w:iw, h:ih };
+}
+function applyRot(){
+  var el = document.documentElement;
+  el.classList.toggle("rotmode", ROT.on);
+  el.classList.toggle("rotA", ROT.on && ROT.dir > 0);
+  el.classList.toggle("rotB", ROT.on && ROT.dir < 0);
+}
+function setRot(on, dir){
+  if (on && dir != null) ROT.dir = dir > 0 ? 1 : -1;
+  var was = ROT.on; ROT.on = !!on; applyRot(); resizeCanvas();
+  if (was !== ROT.on && typeof scheduleOrientation === "function") scheduleOrientation();
+}
+function rotDelta(dx,dy){ if (!ROT.on) return { x:dx, y:dy }; return ROT.dir > 0 ? { x:-dy, y:dx } : { x:dy, y:-dx }; }
 /* ---------- 画布自适应 ---------- */
 var SCALE = 1;
 function resizeCanvas(){
-  var w = window.innerWidth, h = window.innerHeight;
+  var L = logicalSize(), w = L.w, h = L.h;
+  var st = document.documentElement.style;
+  st.setProperty("--vh", h+"px"); st.setProperty("--lw", w+"px"); st.setProperty("--lh", h+"px");
   var s = Math.min(w/VW, h/VH);
-  if (s >= 1) s = Math.floor(s*4)/4; else s = Math.max(0.35, Math.floor(s*20)/20);
+  if (isTouch){ s = Math.max(0.2, s); }            /* 手机：精确铺满，不留黑边 */
+  else if (s >= 1) s = Math.floor(s*4)/4; else s = Math.max(0.35, Math.floor(s*20)/20);
   SCALE = s;
   cv.style.width  = Math.round(VW*s) + "px";
   cv.style.height = Math.round(VH*s) + "px";
 }
 window.addEventListener("resize", resizeCanvas);
 window.addEventListener("orientationchange", function(){ setTimeout(resizeCanvas, 200); });
+/* ---------- 手机横屏识别 / 强制旋转兜底 ---------- */
+function oMetrics(){
+  var vv = window.visualViewport, type = "", angle = -1;
+  try { if (window.screen && screen.orientation){ type = screen.orientation.type || ""; angle = screen.orientation.angle; } } catch(e){}
+  var mqP = false, mqL = false;
+  try { mqP = matchMedia("(orientation:portrait)").matches; mqL = matchMedia("(orientation:landscape)").matches; } catch(e){}
+  return { iw:window.innerWidth||0, ih:window.innerHeight||0, vw:(vv&&vv.width)||0, vh:(vv&&vv.height)||0,
+    sw:(window.screen&&screen.width)||0, sh:(window.screen&&screen.height)||0, type:type, angle:angle, mqP:mqP, mqL:mqL,
+    fs:!!(document.fullscreenElement||document.webkitFullscreenElement) };
+}
+function aspVote(w,h){ if (!(w>0) || !(h>0)) return 0; var r = h/w; if (r > 1.06) return -1; if (r < 0.94) return 1; return 0; }
+function portraitNow(){
+  var m = oMetrics(), iv = aspVote(m.iw,m.ih), vv = aspVote(m.vw,m.vh);
+  if (iv === 1 || vv === 1) return false;
+  if (iv === -1 || vv === -1) return true;
+  var ty = /portrait/i.test(m.type) ? "p" : (/landscape/i.test(m.type) ? "l" : "");
+  if (ty === "p") return true; if (ty === "l") return false;
+  if (m.angle === 90 || m.angle === 270) return false;
+  if (m.mqP) return true; if (m.mqL) return false;
+  return m.ih > m.iw;
+}
+var portraitSince = null;
+function physLandscapeHint(m){
+  m = m || oMetrics();
+  if (/landscape/i.test(m.type||"")) return true;
+  if (m.angle === 90 || m.angle === 270) return true;
+  if (m.sw && m.sh && m.sw > m.sh*1.02) return true;
+  return false;
+}
+function needLandscape(){ if (!isTouch || forceLandscape || ROT.on) return false; return portraitNow(); }
+function updateOrientation(force){
+  var r = $("rotate"); if (!r) return;
+  var m = oMetrics(), physPortrait = portraitNow(), hint = isTouch && physLandscapeHint(m);
+  if (ROT.on && !physPortrait) setRot(false);
+  if (isTouch && !forceLandscape && !ROT.on && physPortrait){
+    if (hint){ if (portraitSince == null) portraitSince = Date.now();
+      var need = landscapeWanted ? 900 : 2000;
+      if (Date.now() - portraitSince > need) setRot(true);
+    } else portraitSince = null;
+  } else portraitSince = null;
+  var flip = needLandscape();
+  if (force || flip !== lastOrientFlip){
+    lastOrientFlip = flip;
+    r.style.display = flip ? "flex" : "none";
+    r.classList.toggle("show", flip);
+    if (document.body) document.body.classList.toggle("landscape", isTouch && !flip);
+    if (flip){
+      var tip = $("rotatetip");
+      if (tip){ var can = !!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen);
+        tip.innerHTML = (can ? "点「进入全屏横屏」自动切横屏；" : "") + "如果画面仍然是竖的，点「强制横屏显示」。"; }
+    }
+    resizeCanvas(); syncTouchLayer();
+  }
+  if (flip){
+    var dg = $("rotdiag");
+    var txt = "视口 " + Math.round(m.iw) + "×" + Math.round(m.ih) + " ｜ 方向 " + (m.type||"未知") +
+      (m.angle >= 0 ? " " + m.angle + "°" : "") + " ｜ 屏幕 " + Math.round(m.sw) + "×" + Math.round(m.sh) +
+      (hint ? " ｜ 已检测到手机横置" : "");
+    if (dg && dg.textContent !== txt) dg.textContent = txt;
+  }
+}
+var orientTimers = [];
+function scheduleOrientation(){
+  [0,180,420,900,1600,2600].forEach(function(ms){ orientTimers.push(setTimeout(function(){ updateOrientation(); }, ms)); });
+  while (orientTimers.length > 36) clearTimeout(orientTimers.shift());
+}
+function initOrientationWatch(){
+  window.addEventListener("resize", scheduleOrientation);
+  window.addEventListener("orientationchange", scheduleOrientation);
+  window.addEventListener("pageshow", scheduleOrientation);
+  window.addEventListener("fullscreenchange", scheduleOrientation);
+  window.addEventListener("webkitfullscreenchange", scheduleOrientation);
+  if (window.visualViewport){ window.visualViewport.addEventListener("resize", scheduleOrientation); window.visualViewport.addEventListener("scroll", scheduleOrientation); }
+  try { matchMedia("(orientation:portrait)").addEventListener("change", scheduleOrientation); } catch(e){}
+  setInterval(function(){ updateOrientation(); }, 1500);
+  document.addEventListener("touchstart", function(){ if (!isTouch){ detectTouch(); scheduleOrientation(); } }, { passive:true, once:true });
+}
+function requestLandscape(){
+  landscapeWanted = true;
+  var el = document.documentElement;
+  var lock = function(){
+    try { if (screen.orientation && screen.orientation.lock) return Promise.resolve(screen.orientation.lock("landscape")).catch(function(){}); } catch(e){}
+    return Promise.resolve();
+  };
+  var p = Promise.resolve();
+  try {
+    if (el.requestFullscreen) p = el.requestFullscreen({ navigationUI:"hide" }).catch(function(){ return el.requestFullscreen().catch(function(){}); }).then(lock);
+    else if (el.webkitRequestFullscreen){ el.webkitRequestFullscreen(); p = lock(); }
+    else p = lock();
+  } catch(e){ p = Promise.resolve(); }
+  Promise.resolve(p).catch(function(){}).then(function(){
+    scheduleOrientation();
+    setTimeout(function(){
+      if (needLandscape()){
+        setRot(true); scheduleOrientation();
+        var tip = $("rotatetip");
+        if (tip) tip.innerHTML = "浏览器无法自动旋转页面，已由游戏强制横屏。<br>方向不对就点右上角「⟳ 换个方向」。";
+      }
+    }, 900);
+  });
+  return false;
+}
+function detectTouch(){
+  var ua = navigator.userAgent || "";
+  isTouch = ("ontouchstart" in window) || (navigator.maxTouchPoints||0) > 0 ||
+    (window.matchMedia && matchMedia("(pointer:coarse)").matches) ||
+    /Android|iPhone|iPad|iPod|Mobile|HarmonyOS|Harmony|Silk|Kindle/i.test(ua);
+  if (document.body) document.body.classList.toggle("touch", isTouch);
+  syncTouchLayer();
+  updateOrientation(true);
+}
+function initOrientationUI(){
+  var br = $("btn-rotate");
+  if (br) br.addEventListener("click", function(ev){ ev.preventDefault(); Audio2.resume(); requestLandscape(); });
+  var bf = $("btn-forcerot");
+  if (bf) bf.addEventListener("click", function(ev){ ev.preventDefault(); Audio2.resume(); landscapeWanted = true; setRot(true); updateOrientation(true); });
+  var bc = $("btn-force");
+  if (bc) bc.addEventListener("click", function(ev){ ev.preventDefault(); Audio2.resume(); forceLandscape = true; updateOrientation(true); });
+  var bl = $("rotflip");
+  if (bl) bl.addEventListener("click", function(ev){ ev.preventDefault(); ROT.dir = -ROT.dir;
+    try { localStorage.setItem("contra.rotDir", String(ROT.dir)); } catch(e){}
+    applyRot(); resizeCanvas(); updateOrientation(true); });
+  applyRot();
+}
 
 /* ---------- 离屏画布 / 像素绘制工具 ---------- */
 function cvs(w,h){ var c=document.createElement("canvas"); c.width=w; c.height=h; return c; }
@@ -2344,7 +2529,7 @@ function drawEntities(reflect){
 function drawPlayer(p){
   var pose = playerPose(p), f = (pose === "run") ? Math.floor(p.runT) : 0;
   var art = bodyArt(p.pi, pose, f);
-  var sx = Math.floor(p.x + p.w/2 - SPR_W/2), sy = Math.floor(p.y + p.h - SPR_H);
+  var sx = Math.floor(p.x + p.w/2 - SPR_W/2 - G.cam.x), sy = Math.floor(p.y + p.h - SPR_H - G.cam.y);
   ctx.save();
   if (p.dir < 0){ ctx.translate(sx + SPR_W, sy); ctx.scale(-1,1); ctx.drawImage(art,0,0); }
   else ctx.drawImage(art, sx, sy);
@@ -2967,6 +3152,13 @@ function showOnly(id){
     if (!el) continue;
     if (OV_IDS[i] === id) el.classList.remove("hide"); else el.classList.add("hide");
   }
+  syncTouchLayer();
+}
+/* 触屏操作层只在真正游玩时出现，避免挡住标题 / 菜单按钮 */
+function syncTouchLayer(){
+  var layer = $("touch"); if (!layer) return;
+  var playing = (G.state === "play" || G.state === "dying");
+  layer.classList.toggle("on", !!isTouch && playing);
 }
 function soundLabel(){
   var b = $("bsound"); if (b) b.textContent = Audio2.isMuted() ? "音效：关" : "音效：开";
@@ -3009,13 +3201,7 @@ function bindUI(){
 function bindTouch(){
   var layer = $("touch");
   if (!layer) return;
-  var coarse = (window.matchMedia && window.matchMedia("(pointer:coarse)").matches);
-  var isTouch = ("ontouchstart" in window) || (navigator.maxTouchPoints > 0) || coarse;
-  if (isTouch){
-    layer.classList.add("on");
-    var rot = $("rotate");
-    if (rot) rot.classList.add("show");
-  }
+  detectTouch();
   var nodes = layer.querySelectorAll("[data-k]");
   for (var i=0;i<nodes.length;i++){
     (function(el){
@@ -3250,7 +3436,8 @@ function boot(){
     ["建立碰撞与遮挡网格…", function(){ buildBuckets(); buildLightGrid(); }],
     ["生成视差丛林与光照缓冲…", function(){ buildPatterns(); buildParallax(); initLightBuffers(); }],
     ["部署堡垒核心…", function(){ initBoss(); }],
-    ["就绪", function(){ bindUI(); G.mode = 1; resetPlayers(1); G.state = "title";
+    ["就绪", function(){ bindUI(); initOrientationUI(); initOrientationWatch(); detectTouch();
+                       G.mode = 1; resetPlayers(1); G.state = "title";
                        G.cam.x = 0; G.cam.y = clamp(GROUND_Y - VH*0.62, -8, LEVEL_H - VH); }]
   ];
   var i = 0;
@@ -3293,7 +3480,10 @@ window.__contra = {
   openCore: function(){ var B = W.boss; for (var i=0;i<B.cannons.length;i++) B.cannons[i].dead = true;
                         B.active = true; B.core.open = true; },
   press: function(code){ onKeyDown(code); },
-  art: function(){ return { FAR:FAR, MID:MID, INT:INT, FORT:FORT }; }
+  art: function(){ return { FAR:FAR, MID:MID, INT:INT, FORT:FORT }; },
+  rot: function(){ return { on:ROT.on, dir:ROT.dir, isTouch:isTouch, force:forceLandscape,
+                            portrait:portraitNow(), logical:logicalSize(), scale:SCALE }; },
+  setRot: setRot, detectTouch: detectTouch, updateOrientation: updateOrientation
 };
 
 boot();
