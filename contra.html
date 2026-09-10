@@ -2852,6 +2852,7 @@ function drawScreenFX(){
 /* ---------- HUD ---------- */
 function drawHUD(){
   var i, p;
+  if (G.state === "title") return;   /* 标题界面不显示战斗 HUD */
   ctx.save();
   ctx.font = "bold 10px monospace"; ctx.textAlign = "left";
   /* 生命 / 得分 */
