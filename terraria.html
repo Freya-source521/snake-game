@@ -100,6 +100,41 @@
   #tinv{right:24px;bottom:124px;width:58px;height:58px}
   #tmap{right:92px;bottom:124px;width:58px;height:58px}
 #thook{right:160px;bottom:124px;width:58px;height:58px}
+  #rotate{position:absolute;inset:0;z-index:300;display:none;align-items:center;justify-content:center;flex-direction:column;gap:16px;
+    background:radial-gradient(900px 620px at 50% 32%,#181432 0%,#05060b 72%);text-align:center;padding:22px}
+  #rotate h2{font-size:19px;letter-spacing:3px;color:#ffe9a8}
+  #rotate .ph{width:66px;height:112px;border:4px solid #6d6d97;border-radius:12px;position:relative;animation:rotshake 2.4s ease-in-out infinite}
+  #rotate .ph:after{content:"";position:absolute;left:50%;top:7px;width:24px;height:4px;margin-left:-12px;border-radius:2px;background:#6d6d97}
+  @keyframes rotshake{0%,30%{transform:rotate(90deg)}60%,100%{transform:rotate(0deg)}}
+  body.touch.landscape{
+    --landscape:1}
+  body.touch.landscape #hotbar{left:50%;bottom:8px;transform:translateX(-50%);display:flex;grid-template-columns:none;gap:3px;padding:4px}
+  body.touch.landscape #hotbar .slot{width:38px;height:38px}
+  body.touch.landscape #hotbar .slot canvas{width:30px;height:30px;margin:2px}
+  body.touch.landscape #worldinfo{left:8px;top:52px;bottom:auto;max-width:26vw;font-size:10.5px}
+  body.touch.landscape #topbtns{flex-direction:row;gap:5px;align-items:center}
+  body.touch.landscape #topbtns .btn{padding:4px 7px;font-size:11px}
+  body.touch.landscape #minimap{top:52px}
+  body.touch.landscape #stats .bar{width:min(210px,26vw)}
+  body.touch.landscape #stick{width:112px;height:112px;left:12px;bottom:12px}
+  body.touch.landscape #stick i{width:46px;height:46px;margin:-23px 0 0 -23px}
+  body.touch.landscape #tjump{right:14px;bottom:14px;width:72px;height:72px}
+  body.touch.landscape #tuse{right:92px;bottom:20px;width:62px;height:62px}
+  body.touch.landscape #tinv{right:14px;bottom:94px;width:50px;height:50px}
+  body.touch.landscape #tmap{right:68px;bottom:94px;width:50px;height:50px}
+  body.touch.landscape #thook{right:122px;bottom:94px;width:50px;height:50px}
+  body.touch.landscape .screen{overflow-y:auto;overflow-x:hidden;padding:8px;justify-content:flex-start}
+  body.touch.landscape .card-box{padding:12px;gap:8px;margin:auto}
+  body.touch.landscape #charprev,body.touch.landscape #worldprev{width:126px;height:132px}
+  body.touch.landscape .panelwrap{top:4px;left:50%;transform:translateX(-50%);flex-wrap:wrap;justify-content:center;align-items:flex-start;
+    max-height:calc(100vh - 8px);overflow-y:auto;overflow-x:hidden;max-width:100vw;gap:8px}
+  body.touch.landscape .panel{padding:8px}
+  body.touch.landscape .panelwrap .slot{width:38px;height:38px}
+  body.touch.landscape .panelwrap .slot canvas{width:30px;height:30px;margin:2px}
+  body.touch.landscape .grid10{grid-template-columns:repeat(10,42px);gap:3px}
+  body.touch.landscape .grid5{grid-template-columns:repeat(5,42px);gap:3px}
+  body.touch.landscape .scroll{max-height:34vh}
+  body.touch.landscape .kv{font-size:12px;gap:3px 10px}
   #loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px;background:#05060b;z-index:50}
   #loading .track{width:min(460px,80vw);height:20px;background:#16162a;border:3px solid;border-color:#5f5f8c #0d0d14 #0d0d14 #5f5f8c}
   #loading .track i{display:block;height:100%;width:0;background:linear-gradient(90deg,#38f0d0,#7c6bff)}
@@ -150,6 +185,12 @@
   <div class="tbtn" id="tinv">包</div>
   <div class="tbtn" id="tmap">图</div>
   <div class="tbtn" id="thook">钩</div>
+</div>
+<div id="rotate">
+  <div class="ph"></div>
+  <h2>请横屏游玩</h2>
+  <div class="tip" id="rotatetip">本游戏为横屏体验：点下面的按钮进入全屏横屏。<br/>如果手机仍然竖着，请手动旋转设备。</div>
+  <button class="btn" id="btn-rotate">进入全屏横屏</button>
 </div>
 <div id="loading"><h2 class="sub" id="loadtxt">正在生成世界…</h2><div class="track"><i id="loadbar"></i></div><div class="tip" id="loadtip"></div></div>
 
@@ -931,8 +972,12 @@ function bakeAllTiles(){for(let i=1;i<TILE.length;i++)TEXCACHE[i]=makeTileTex(i)
 const WALLTEX=[];
 function bakeWallTex(){const cs=[null,["#6a4228","#4a2a18","#8a5a3a"],["#4a4a56","#2e2e38","#6a6a76"],["#6a4420","#402810","#8a5c30"],
   ["#20284a","#141a30","#3a4a6a"],["#33284a","#1a1428","#4a3a66"],["#5a5a66","#3a3a46","#7a7a86"],["#8a9aa8","#5a6a78","#bacad8"],["#78a8c0","#4a7888","#a8d8f0"],["#4a3218","#2a1c0c","#6a4a28"],["#2a6a2a","#184818","#3a8a3a"]];
-  for(let i=1;i<WALLDEF.length;i++){const b=cvs(TS,TS),g=cx2(b),rnd=mulberry32(9001+i*77),c=cs[i];
-    baseTex(g,c,0,rnd,{speck:22});const out=[];for(let v=0;v<2;v++)out.push(b);WALLTEX[i]=out;}}
+  const dim=(hex,f)=>{const v=parseInt(hex.slice(1),16);const r=floor(((v>>16)&255)*f),g2=floor(((v>>8)&255)*f),b2=floor((v&255)*f);
+    return "#"+((1<<24)+(r<<16)+(g2<<8)+b2).toString(16).slice(1);};
+  for(let i=1;i<WALLDEF.length;i++){const c=cs[i].map(x=>dim(x,.44));const out=[];
+    for(let v=0;v<2;v++){const b=cvs(TS,TS),g=cx2(b),rnd=mulberry32(9001+i*77+v*613);
+      baseTex(g,c,v,rnd,{speck:v?30:18,noEdge:true});out.push(b);}
+    WALLTEX[i]=out;}}
 function glowSprite(color,size,pow){const c=cvs(size,size),g=cx2(c);const r=size/2;
   const grd=g.createRadialGradient(r,r,0,r,r,r);grd.addColorStop(0,color);grd.addColorStop(.4,color.replace("rgb","rgba").replace(")",",.35)"));
   grd.addColorStop(1,"rgba(0,0,0,0)");g.fillStyle=grd;g.fillRect(0,0,size,size);return c;}
@@ -2100,7 +2145,8 @@ const CV=document.getElementById("cv");let ctx=cx2(CV);
 let VW=0,VH=0,DPR=1;
 function resize(){DPR=min(2,window.devicePixelRatio||1);const w=window.innerWidth,h=window.innerHeight;
   CV.width=floor(w*DPR);CV.height=floor(h*DPR);CV.style.width=w+"px";CV.style.height=h+"px";ctx=cx2(CV);VW=CV.width;VH=CV.height;}
-window.addEventListener("resize",resize);
+window.addEventListener("resize",()=>{resize();updateOrientation();});
+window.addEventListener("orientationchange",()=>setTimeout(updateOrientation,220));
 const skyPal={dawn:[["#2a3a6a","#e08a5a"],["#5a3a6a","#f0a860"]],day:[["#4a8ad8","#a8d8f8"],["#6aa8e0","#c8e8ff"]],dusk:[["#3a2a5a","#e06a4a"],["#5a3a5a","#f08a5a"]],night:[["#05060f","#141a34"],["#0a0a1a","#1a2340"]]};
 function timePhase(){const t=W.time;
   if(t<4.5)return {a:"night",b:"night",f:0};
@@ -2189,8 +2235,9 @@ function drawWorld(pl){const z=G.cam.zoom;const r=viewRange();const s=TS*z;
   for(let ty=r.y0;ty<=r.y1;ty++)for(let tx=r.x0;tx<=r.x1;tx++){const i=ty*W.w+tx;
     const [sx,sy]=tileScreen(tx,ty);
     const wall=W.wall[i];
-    if(wall&&WALLTEX[wall]){const wt=WALLTEX[wall][(tx*3+ty*5)%2];ctx.globalAlpha=0.92;
-      ctx.drawImage(wt,sx,sy,ceil(s),ceil(s));ctx.globalAlpha=1;}
+    if(wall&&WALLTEX[wall]){const wt=WALLTEX[wall][(tx*3+ty*5)%2];
+      ctx.drawImage(wt,sx,sy,ceil(s),ceil(s));
+      ctx.fillStyle="rgba(0,0,0,.18)";ctx.fillRect(sx,sy,ceil(s),ceil(s));}
     const t=W.tile[i];
     if(t!==0&&TEXCACHE[t]){const tex=TEXCACHE[t][((tx*7+ty*13)%4+4)%4];
       ctx.drawImage(tex,sx,sy,ceil(s),ceil(s));
@@ -2693,7 +2740,30 @@ function startPlaying(loaded){showScreen(null);$("scr-create").classList.add("hi
   refreshHotbar();Audio2.resume();Audio2.setVolume(Audio2.getVolume());Audio2.play(biomeMusic());
   if(!loaded&&G.player)saveGame(true);}
 let isTouch=false;
-function detectTouch(){isTouch=("ontouchstart" in window)||navigator.maxTouchPoints>0||matchMedia("(pointer:coarse)").matches;document.body.classList.toggle("touch",isTouch);if(isTouch)$("touch").style.display=G.screen==="play"?"block":"none";}
+let landscapeWanted=false;
+function needLandscape(){return isTouch&&window.innerHeight>window.innerWidth;}
+function updateOrientation(){
+  const r=$("rotate");if(!r)return;
+  const flip=isTouch&&window.innerHeight>window.innerWidth;
+  r.style.display=flip?"flex":"none";
+  if(document.body)document.body.classList.toggle("landscape",isTouch&&!flip);
+  const tip=$("rotatetip");
+  if(tip&&flip){const can=!!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen);
+    tip.innerHTML=(can?"点下面的按钮进入全屏横屏。<br/>":"")+"如果手机仍然竖着，请手动把设备横过来。";}
+  if(!flip&&G.screen==="play")resize();
+}
+function requestLandscape(){
+  landscapeWanted=true;const el=document.documentElement;const goLock=()=>{
+    try{if(screen.orientation&&screen.orientation.lock)return screen.orientation.lock("landscape").catch(()=>{});}catch(e){}
+    return Promise.resolve();};
+  const after=()=>setTimeout(updateOrientation,450);
+  try{
+    if(el.requestFullscreen)return el.requestFullscreen({navigationUI:"hide"}).catch(()=>el.requestFullscreen().catch(()=>{})).then(goLock).then(after);
+    if(el.webkitRequestFullscreen){el.webkitRequestFullscreen();return goLock().then(after);}
+  }catch(e){}
+  return goLock().then(after);
+}
+function detectTouch(){isTouch=("ontouchstart" in window)||navigator.maxTouchPoints>0||matchMedia("(pointer:coarse)").matches;document.body.classList.toggle("touch",isTouch);if(isTouch)$("touch").style.display=G.screen==="play"?"block":"none";updateOrientation();}
 function bindInput(){
   window.addEventListener("keydown",e=>{if(e.code==="F5")return;
     G.keys[e.code]=true;
@@ -2740,6 +2810,9 @@ function bindInput(){
   $("b-respawn").addEventListener("click",respawn);
   $("b-totitle").addEventListener("click",()=>toTitle());
   $("b-help").addEventListener("click",showHelp);$("b-settings").addEventListener("click",()=>showSettings(false));
+  const br=$("btn-rotate");if(br)br.addEventListener("click",()=>{Audio2.resume();requestLandscape();});
+  $("b-newchar").addEventListener("click",()=>{if(isTouch&&needLandscape())requestLandscape();});
+  $("b-continue").addEventListener("click",()=>{if(isTouch&&needLandscape())requestLandscape();});
   $("b-continue").addEventListener("click",()=>{Audio2.resume();loadGame(ok=>{if(!ok)say("没有可用的存档");});});
   $("b-newchar").addEventListener("click",()=>showCreateScreen());
 }
@@ -2775,7 +2848,7 @@ function showCreateScreen(){const s=$("scr-create");s.classList.remove("hidden")
     c.drawImage(tmp,50,30,72,104);}
   ["cskin","chair","cshirt"].forEach(id=>$(id).addEventListener("change",drawPrev));drawPrev();
   $("cback").onclick=()=>{s.classList.add("hidden");showScreen("scr-title");};
-  $("cstart").onclick=()=>{const cfg={name:$("cname").value||"冒险者",diff:$("cdiff").value,size:$("csize").value,seed:$("cseed").value||String(seed),
+  $("cstart").onclick=()=>{if(isTouch&&needLandscape())requestLandscape();const cfg={name:$("cname").value||"冒险者",diff:$("cdiff").value,size:$("csize").value,seed:$("cseed").value||String(seed),
       skin:SKIN[+$("cskin").value],hair:HAIR[+$("chair").value],shirt:$("cshirt").value,pants:"#4a3a6a"};
     s.classList.add("hidden");Audio2.resume();startNewWorld(cfg);};}
 function updateMouseWorld(){const mx=G.mouse.x,my=G.mouse.y;G.mouse.world.x=mx/G.cam.zoom+cam.x;G.mouse.world.y=my/G.cam.zoom+cam.y;}
