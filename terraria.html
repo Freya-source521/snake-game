@@ -373,6 +373,9 @@ function silhouette(g,fn,dark,ex){const P=(x,y,w,h,c)=>{g.fillStyle=c;g.fillRect
 function painter(g,ex,color){return (x,y,w,h,c)=>{g.fillStyle=c||color;g.fillRect(x-ex,y-ex,w+ex*2,h+ex*2);};}
 function twoPass(g,fn,dark,ex){silhouette(g,fn,dark,ex);fn(painter(g,0));}
 const SKIN=["#f0c090","#d8a070","#b07848","#8a5a30"],HAIR=["#3a2418","#6b3a1a","#c8a04a","#e8e0d0","#8a2a4a","#2a5a8a","#3aa06a","#c04a2a"];
+const DIGARM=[[[11,9],[12,8],[13,7],[14,6]],[[12,10],[13,10],[14,9],[15,8]],[[12,12],[13,12],[14,13],[15,13]],[[12,11],[13,11],[14,11],[15,11]]];
+const DIGHAND=[[16,7],[17,9],[17,14],[17,12]];
+const DIGANG=[-1.0,-0.45,0.5,0.12];
 function drawHumanoid(g,i,o){o=o||{};const skin=o.skin||SKIN[0],hair=o.hair||HAIR[0],shirt=o.shirt||"#3a6ad8",pants=o.pants||"#4a3a6a",
   boots=o.boots||"#5a3a1a",dk=o.dark||"#201424",armor=o.armor||null;const walk=(o.walk==null?i%4:o.walk),air=o.air||0;
   const up=o.swim?0:0;
@@ -382,7 +385,9 @@ function drawHumanoid(g,i,o){o=o||{};const skin=o.skin||SKIN[0],hair=o.hair||HAI
       P(5,10,7,7,shirt);P(4,9,3,6,shirt);
       P(5,17,3,5+lo,pants);P(9,17,3,5-lo,pants);
       P(4,22+lo,4,2,boots);P(9,22-lo,4,2,boots);
-      P(11,10,2,5,skin);P(3,10,2,5,skin);}
+      P(3,10,2,5,skin);
+      if(o.dig!=null){const A=DIGARM[(((o.dig|0)%4)+4)%4];for(const qd of A)P(qd[0],qd[1],2,2,skin);}
+      else P(11,10,2,5,skin);}
     P(5,2,7,6,skin);P(4,3,2,4,hair);P(11,3,2,4,hair);P(5,1,7,2,hair);P(4,7,3,2,hair);
     P(8,4,1,2,"#20141c");P(10,4,1,2,"#20141c");P(9,6,1,1,"#c07060");
     if(armor&&armor.head){P(5,1,7,3,armor.head);P(4,2,2,4,armor.head);P(11,2,2,4,armor.head);}
@@ -1550,7 +1555,10 @@ function mineTile(tx,ty,dt){
   if(hasBuff(pl,"mining"))pow*=1.25;
   const rate=pow*1.85/(max(2,t.hard)*1.6);
   pl.mine.prog+=dt*rate;
-  if(Math.random()<dt*22)addParticle(tx*TS+8,ty*TS+8,"dig");
+  const ddt=dt||0.033;pl.digT=(pl.digT||0)+ddt;const dpose=0.1;const df=floor(pl.digT/dpose)%4;const prevF=pl.digF;
+  pl.digF=df;
+  if(df===2&&prevF!==2){for(let k=0;k<4;k++)addParticle(tx*TS+8,ty*TS+8,"dig");G.cam.shake=max(G.cam.shake,0.55);Audio2.sfx("dig");pl.digSnd=9;}
+  else if(Math.random()<ddt*10)addParticle(tx*TS+8,ty*TS+8,"dig");
   pl.digSnd=(pl.digSnd||0)-dt;if(pl.digSnd<=0){Audio2.sfx("dig");pl.digSnd=0.2;}
   if(pl.mine.prog>=1){breakTile(tx,ty,kind||"hand");pl.mine=null;pl.mineItem=null;pl.digSnd=0;}
 }
@@ -2350,10 +2358,10 @@ function drawArt(g,key,frame,x,y,scale,flip,white,alpha){const a=A(key);if(!a)re
 function bakePlayerArt(pl){if(pl._artKey===plartKey(pl))return;pl._artKey=plartKey(pl);
   const armor={};["head","chest","legs"].forEach(k=>{const s=pl.equip[k];if(s&&ITEMS[s.id].pal)armor[k]=ITEMS[s.id].pal.main;});
   pl._art=[];
-  for(let i=0;i<8;i++){const c=cvs(18,26),g=cx2(c);
+  for(let i=0;i<12;i++){const c=cvs(18,26),g=cx2(c);
     const opts={skin:pl.skin,hair:pl.hair,shirt:pl.shirt,pants:pl.pants,armor:Object.keys(armor).length?armor:null,dark:"#1a1220"};
     if(i===0)opts.walk=0;else if(i===1)opts.walk=1;else if(i===2)opts.walk=3;else if(i===3)opts.air=1;
-    else if(i===4||i===5){opts.walk=0;opts.item="sword";}else if(i===6)opts.walk=0;else opts.swim=1;
+    else if(i===4||i===5){opts.walk=0;opts.item="sword";}else if(i===6)opts.walk=0;else if(i===7)opts.swim=1;else{opts.walk=0;opts.dig=i-8;}
     drawHumanoid(g,i,opts);
     if(pl.minionArt)drawArt(g,pl.minionArt,0,0,0,1,false,1);
     pl._art.push(c);}
@@ -2434,7 +2442,7 @@ function drawProj(p,sx,sy,z){const s=z;ctx.save();ctx.translate(sx,sy);ctx.rotat
     ctx.drawImage(GLOWS.warm,sx-sz/2,sy-sz/2,sz,sz);ctx.globalCompositeOperation="source-over";ctx.globalAlpha=1;}}
 function drawPlayer(pl,z,toS){if(pl.dead)return;
   bakePlayerArt(pl);const sc=z;
-  let f=pl.frame;if(pl.inLiquid) f=7;else if(pl.swing>0.16)f=5;else if(pl.swing>0)f=6;else if(!pl.onGround)f=3;
+  let f=pl.frame;if(pl.inLiquid) f=7;else if(pl.swing>0.16)f=5;else if(pl.swing>0)f=6;else if(pl.mine&&(pl.digT||0)>0)f=8+(((pl.digF|0)%4)+4)%4;else if(!pl.onGround)f=3;
   else if(abs(pl.vx)>12)f=1+(floor(pl.walkT)%2);else f=0;
   const art=pl._art[f]||pl._art[0];
   const footRow=24;
@@ -2449,8 +2457,9 @@ function drawPlayer(pl,z,toS){if(pl.dead)return;
   drawHeldItem(pl,sx,sy,sc);}
 function drawHeldItem(pl,sx,sy,sc){const s=pl.inv[pl.hot];if(!s)return;const it=ITEMS[s.id];if(!it||it.t==="block"||it.t==="furn")return;
   const z=G.cam.zoom;const swingT=pl.swing>0?1-(pl.swing/0.28):0;
-  const ang=pl.swing>0?(-1+swingT*2)*(pl.dir>0?1:-1):0;
-  const hx=sx+sc*(pl.dir>0?12:-6),hy=sy+sc*8;
+  let ang=pl.swing>0?(-1+swingT*2)*(pl.dir>0?1:-1):0,hx=sx+sc*(pl.dir>0?12:-6),hy=sy+sc*8;
+  if(pl.mine&&pl.swing<=0&&(pl.digT||0)>0){const df=(((pl.digF|0)%4)+4)%4,hp=DIGHAND[df];
+    hx=sx+sc*(pl.dir>0?hp[0]:18-hp[0]);hy=sy+sc*hp[1];ang=DIGANG[df]*(pl.dir>0?1:-1);}
   ctx.save();ctx.translate(hx,hy);ctx.rotate(ang*0.9);
   const iw=16*sc*(it.art==="broadsword"||it.art==="shortsword"||it.art==="sword"?0.9:0.8);
   const icon=itemIconCanvas(it,16);
@@ -2924,7 +2933,7 @@ function bindInput(){
   tu.addEventListener("touchend",e=>{e.preventDefault();touchMove.use=false;btnUse=false;syncUse();},{passive:false});
   tu.addEventListener("touchcancel",e=>{touchMove.use=false;btnUse=false;syncUse();},{passive:false});
   const ti=$("tinter");if(ti){let interTapT=0;
-    const doInter=()=>{const n=now();if(n-interTapT<400)return;interTapT=n;Audio2.resume();if(!Audio2.current())Audio2.play(biomeMusic());interactNearest();};
+    const doInter=()=>{const n=now();if(n-interTapT<180)return;interTapT=n;Audio2.resume();if(!Audio2.current())Audio2.play(biomeMusic());interactNearest();};
     ti.addEventListener("touchstart",e=>{e.preventDefault();doInter();},{passive:false});
     ti.addEventListener("click",e=>{e.preventDefault();doInter();});}
   const th=$("thook");if(th){th.addEventListener("touchstart",e=>{e.preventDefault();tryGrapple();},{passive:false});
@@ -3055,7 +3064,7 @@ window.__terra={G:G,W:W,TILE:TILE,TID:TID,ITEMS:ITEMS,RECIPES:RECIPES,startNewWo
   findRoomFor:findRoomFor,startInvasion:startInvasion,meteorLand:meteorLand,shatterOrb:shatterOrb,startHardmode:startHardmode,
   respawn:respawn,openChestAt:openChestAt,openShop:openShop,pickups:()=>G.drops.map(d=>d.id),npcList:()=>G.npc.map(n=>n.type),
   oMetrics:oMetrics,portraitNow:portraitNow,updateOrientation:updateOrientation,resize:resize,isTouch:()=>isTouch,ART:ART,artBottomRow:artBottomRow,
-  ROT:ROT,setRot:setRot,cvPoint:cvPoint,logicalSize:logicalSize,requestLandscape:requestLandscape,
+  ROT:ROT,setRot:setRot,cvPoint:cvPoint,logicalSize:logicalSize,requestLandscape:requestLandscape,cam:cam,
   interactNearest:interactNearest,tapInteract:tapInteract,isInterTile:isInterTile};
 initGame();
 </script>
