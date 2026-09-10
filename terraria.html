@@ -77,6 +77,7 @@
   #dialog{position:absolute;left:50%;bottom:74px;transform:translateX(-50%);width:min(720px,calc(var(--lw)*.94));padding:12px 14px;display:none;flex-direction:column;gap:8px;z-index:20}
   #dialog .who{color:#ffe9a8;font-weight:800;letter-spacing:2px;font-size:14px}
   #dialog .txt{font-size:13.5px;line-height:1.7;color:#e6e3ff}
+  #dialog.pass{pointer-events:none}
   .panelwrap{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:none;flex-direction:row;gap:12px;z-index:25;max-width:calc(var(--lw)*.98)}
   .panel{padding:10px}
   .panel .ptitle{font-size:12.5px;letter-spacing:2px;color:#ffe9a8;margin-bottom:8px;text-align:center}
@@ -92,7 +93,7 @@
   .recipe .rw{flex:1;min-width:0}
   .recipe .rn{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .recipe .rs{color:#9a97bd;font-size:11px}
-  #touch{position:absolute;inset:0;z-index:15;display:none;pointer-events:none}
+  #touch{position:absolute;inset:0;z-index:21;display:none;pointer-events:none}
   #stick{position:absolute;left:18px;bottom:18px;width:130px;height:130px;border-radius:50%;background:rgba(40,38,64,.4);border:3px solid rgba(150,150,200,.5);pointer-events:auto}
   #stick i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(220,215,255,.5);border:3px solid rgba(255,255,255,.6)}
   .tbtn{position:absolute;border-radius:50%;background:rgba(40,38,64,.5);border:3px solid rgba(150,150,200,.55);color:#fff;
@@ -102,6 +103,7 @@
   #tinv{right:24px;bottom:124px;width:58px;height:58px}
   #tmap{right:92px;bottom:124px;width:58px;height:58px}
 #thook{right:160px;bottom:124px;width:58px;height:58px}
+  #tinter{right:228px;bottom:124px;width:58px;height:58px}
   html.rotmode{overflow:hidden;background:#05060b;height:var(--lh)}
   html.rotmode body{position:fixed;left:0;top:0;width:var(--lw);height:var(--lh);overflow:hidden;transform-origin:0 0}
   html.rotmode.rotA body{transform:translateY(var(--lw)) rotate(-90deg)}
@@ -134,6 +136,7 @@
   body.touch.landscape #tinv{right:14px;bottom:94px;width:50px;height:50px}
   body.touch.landscape #tmap{right:68px;bottom:94px;width:50px;height:50px}
   body.touch.landscape #thook{right:122px;bottom:94px;width:50px;height:50px}
+  body.touch.landscape #tinter{right:180px;bottom:94px;width:50px;height:50px}
   body.touch.landscape .screen{overflow-y:auto;overflow-x:hidden;padding:8px;justify-content:flex-start}
   body.touch.landscape .card-box{padding:12px;gap:8px;margin:auto}
   body.touch.landscape #charprev,body.touch.landscape #worldprev{width:126px;height:132px}
@@ -196,6 +199,7 @@
   <div class="tbtn" id="tinv">包</div>
   <div class="tbtn" id="tmap">图</div>
   <div class="tbtn" id="thook">钩</div>
+  <div class="tbtn" id="tinter">交</div>
 </div>
 <div id="rotate">
   <div class="ph"></div>
@@ -2157,8 +2161,10 @@ function biomeMusic(){const pl=G.player;const b=biomeAt(pl.x/TS,pl.y/TS);if(W.cu
   if(!W.day)return "night";return BIOMES[b]&&BIOMES[b].music||"day";}
 function showEvent(txt){const el=document.getElementById("events");el.textContent=txt;el.style.opacity="1";
   clearTimeout(G.evT);G.evT=setTimeout(()=>{el.style.opacity="0";},2600);}
-function say(txt){const el=document.getElementById("dialog");if(!el)return;el.innerHTML='<div class="txt">'+esc(txt)+'</div>';el.style.display="flex";
-  clearTimeout(G.sayT);G.sayT=setTimeout(()=>{el.style.display="none";},5200);}
+function say(txt){const el=document.getElementById("dialog");if(!el)return;
+  if(G.npcTalk){if(G.player)addFloat(G.player.x,G.player.y-22,txt,"#ffe9a8");return;}
+  el.innerHTML='<div class="txt">'+esc(txt)+'</div>';el.style.display="flex";el.classList.add("pass");
+  clearTimeout(G.sayT);G.sayT=setTimeout(()=>{if(G.npcTalk)return;el.style.display="none";el.classList.remove("pass");},5200);}
 function dropItemAtPlayer(id,c){const pl=G.player;dropItem(pl.x,pl.y,id,c);}
 const CV=document.getElementById("cv");let ctx=cx2(CV);
 let VW=0,VH=0,DPR=1;
@@ -2543,7 +2549,7 @@ function dropSlot(index,all){const pl=G.player;const s=pl.inv[index];if(!s)retur
 function refreshInvUI(){const wrap=$("panelwrap");if(!wrap||wrap.style.display!=="flex")return;buildPanels();}
 function closePanels(){const wrap=$("panelwrap");wrap.style.display="none";wrap.innerHTML="";G.uiOpen=null;G.chestOpen=null;G.shopOpen=null;G.npcTalk=null;
   if(G.hold){const left=giveItem(G.hold.id,G.hold.c);G.hold=null;}
-  const d=$("dialog");if(d)d.style.display="none";}
+  const d=$("dialog");if(d){d.style.display="none";d.classList.remove("pass");}}
 function stationNear(){const pl=G.player;const tx=floor((pl.x+pl.w/2)/TS),ty=floor((pl.y+pl.h/2)/TS);const set={};
   for(let y=ty-5;y<=ty+5;y++)for(let x=tx-7;x<=tx+7;x++){if(!inW(x,y))continue;const st=TILE[til(x,y)].station;if(st)set[st]=true;}
   return set;}
@@ -2657,7 +2663,7 @@ function biomeTierAt(tx,ty){const b=biomeAt(tx,ty);if(b==="dungeon")return "dung
   if(b==="corruption")return "corruption";if(b==="snow")return "snow";if(b==="jungle")return "jungle";if(b==="desert")return "desert";if(b==="ocean")return "ocean";
   return (ty*TS>W.surface[tx]*TS+34)?"cave":"forest";}
 function openShop(npc){G.shopOpen={npc:npc,items:NPCDEF[npc.type].shop||[]};buildPanels();}
-function npcInteract(n){G.npcTalk=n;const d=NPCDEF[n.type];const el=$("dialog");
+function npcInteract(n){G.npcTalk=n;clearTimeout(G.sayT);const d=NPCDEF[n.type];const el=$("dialog");el.classList.remove("pass");
   let html='<div class="who">'+esc(d.n)+'</div><div class="txt">'+esc(pick(Math.random,d.lines))+'</div>';
   if(d.hint)html+='<div class="txt" style="color:#ffe9a8">'+esc(d.hint())+'</div>';
   const q=W.flags.dailyQuest;
@@ -2742,7 +2748,7 @@ function updateTitle(){const el=$("titlesave");if(!el)return;
 function showHelp(){const w=document.createElement("div");w.className="screen";w.id="scr-help";
   w.innerHTML='<h2 class="sub">操作说明</h2><div class="card-box bevel"><div class="keyhint">'+
    '<b>A / D 或 ← →</b>：左右移动<br><b>空格 / W</b>：跳跃（长按跳更高）<br><b>S</b>：下蹲 / 从平台下落 / 水中下潜<br><b>鼠标左键</b>：使用手上物品（挖掘 / 攻击 / 放置 / 施法）<br>'+
-   '<b>鼠标右键</b>：与宝箱、NPC 互动<br><b>1~0 或 滚轮</b>：切换快捷栏<br><b>B</b>：背包 / 装备 / 饰品<br><b>C</b>：制作面板（靠近工作台、熔炉、铁砧等）<br><b>M</b>：放大小地图<br><b>ESC</b>：暂停 / 存档 / 设置<br><b>手机</b>：左下摇杆移动，右下按钮跳跃 / 使用 / 背包<br><br>'+
+   '<b>鼠标右键</b>：与宝箱、NPC 互动<br><b>1~0 或 滚轮</b>：切换快捷栏<br><b>B</b>：背包 / 装备 / 饰品<br><b>C</b>：制作面板（靠近工作台、熔炉、铁砧等）<br><b>M</b>：放大小地图<br><b>ESC</b>：暂停 / 存档 / 设置<br><b>手机</b>：左下摇杆移动；右下按钮跳跃 / 使用 / 背包 / 钩爪 / 交（互动）<br><b>手机挖矿</b>：手指按住屏幕上要挖的方块不放即可持续挖掘，拖动手指可换目标<br><b>手机互动</b>：直接点一下 NPC 或宝箱，或按「交」按钮自动寻找附近可互动目标（对话 / 开箱 / 开门 / 设重生点）<br><br>'+
    '<b>成长路线</b>：砍树 → 工作台 → 熔炉炼锭 → 铁砧做装备 → 挖矿 → 击败克苏鲁之眼 → 地牢 → 地狱血肉之墙 → 困难模式<br>'+
    '<b>小提示</b>：夜晚放火把防止怪物在城镇生成；宝箱里的装备能快速提升战力；生命水晶可以永久加血。</div><button class="btn" id="helpclose">返回</button></div>';
   document.body.appendChild(w);$("helpclose").onclick=()=>w.remove();}
@@ -2884,8 +2890,20 @@ function bindInput(){
     if(e.button===0)G.mouse.down=true;if(e.button===2){G.mouse.rdown=true;interactKey();}if(e.button===1){e.preventDefault();tryGrapple();}});
   window.addEventListener("mouseup",e=>{if(e.button===0)G.mouse.down=false;if(e.button===2)G.mouse.rdown=false;});
   CV.addEventListener("mousemove",e=>{const q=cvPoint(e.clientX,e.clientY);G.mouse.x=q.x;G.mouse.y=q.y;});
-  const aim=e=>{const t=e.touches&&e.touches[0];if(!t)return;const q=cvPoint(t.clientX,t.clientY);G.mouse.x=q.x;G.mouse.y=q.y;};
-  CV.addEventListener("touchstart",aim,{passive:true});CV.addEventListener("touchmove",aim,{passive:true});
+  let aimId=null,touchUse=false,btnUse=false;
+  function syncUse(){G.mouse.down=!!(touchUse||btnUse);}
+  function aimTouch(t){const q=cvPoint(t.clientX,t.clientY);G.mouse.x=q.x;G.mouse.y=q.y;updateMouseWorld();}
+  CV.addEventListener("touchstart",e=>{Audio2.resume();if(!Audio2.current())Audio2.play(biomeMusic());
+    if(G.screen!=="play")return;const t=e.changedTouches&&e.changedTouches[0];if(!t)return;
+    aimId=t.identifier;aimTouch(t);
+    if(!G.paused&&!G.uiOpen&&tapInteract()){aimId=null;touchUse=false;syncUse();return;}
+    touchUse=true;syncUse();},{passive:true});
+  CV.addEventListener("touchmove",e=>{if(aimId==null)return;const list=e.changedTouches||e.touches;if(!list)return;
+    for(let i=0;i<list.length;i++){const t=list[i];if(t.identifier===aimId){aimTouch(t);break;}}},{passive:true});
+  function endAim(e){const rem=(e&&e.touches)||[];let still=false;for(let i=0;i<rem.length;i++){if(rem[i].identifier===aimId)still=true;}
+    if(still)return;aimId=null;touchUse=false;syncUse();}
+  CV.addEventListener("touchend",endAim,{passive:true});
+  CV.addEventListener("touchcancel",endAim,{passive:true});
   CV.addEventListener("wheel",e=>{if(G.player){G.player.hot=(G.player.hot+(e.deltaY>0?1:9))%10;refreshHotbar();}e.preventDefault();},{passive:false});
   document.addEventListener("visibilitychange",()=>{if(document.hidden){if(G.player)saveGame(true);G.keys={};G.mouse.down=false;}});
   document.addEventListener("mouseleave",()=>{G.keys={};G.mouse.down=false;});
@@ -2902,8 +2920,13 @@ function bindInput(){
   const tj=$("tjump"),tu=$("tuse");
   tj.addEventListener("touchstart",e=>{e.preventDefault();touchMove.jump=true;},{passive:false});
   tj.addEventListener("touchend",e=>{e.preventDefault();touchMove.jump=false;},{passive:false});
-  tu.addEventListener("touchstart",e=>{e.preventDefault();touchMove.use=true;G.mouse.down=true;},{passive:false});
-  tu.addEventListener("touchend",e=>{e.preventDefault();touchMove.use=false;G.mouse.down=false;},{passive:false});
+  tu.addEventListener("touchstart",e=>{e.preventDefault();touchMove.use=true;btnUse=true;syncUse();},{passive:false});
+  tu.addEventListener("touchend",e=>{e.preventDefault();touchMove.use=false;btnUse=false;syncUse();},{passive:false});
+  tu.addEventListener("touchcancel",e=>{touchMove.use=false;btnUse=false;syncUse();},{passive:false});
+  const ti=$("tinter");if(ti){let interTapT=0;
+    const doInter=()=>{const n=now();if(n-interTapT<400)return;interTapT=n;Audio2.resume();if(!Audio2.current())Audio2.play(biomeMusic());interactNearest();};
+    ti.addEventListener("touchstart",e=>{e.preventDefault();doInter();},{passive:false});
+    ti.addEventListener("click",e=>{e.preventDefault();doInter();});}
   const th=$("thook");if(th){th.addEventListener("touchstart",e=>{e.preventDefault();tryGrapple();},{passive:false});
     th.addEventListener("touchend",e=>{e.preventDefault();if(G.player&&G.player.grapple)G.player.grapple=null;},{passive:false});}
   $("tinv").addEventListener("click",()=>toggleInv());$("tmap").addEventListener("click",()=>toggleMap());
@@ -2924,6 +2947,28 @@ function bindInput(){
   $("b-continue").addEventListener("click",()=>{Audio2.resume();loadGame(ok=>{if(!ok)say("没有可用的存档");});});
   $("b-newchar").addEventListener("click",()=>showCreateScreen());
 }
+function isInterTile(t){return !!t&&(t.n==="chest"||t.n==="goldChest"||t.n==="iceChest"||t.n==="shadowChest"||t.n==="bed"||!!t.door||t.n==="doorOpen");}
+function tapInteract(){const pl=G.player;if(!pl||pl.dead)return false;
+  updateMouseWorld();const wx=G.mouse.world.x,wy=G.mouse.world.y;
+  const npc=npcForPos(wx,wy);
+  if(npc&&dist(npc.x,npc.y,pl.x,pl.y)<140){G.npcNear=npc;interactKey();return true;}
+  const tx=floor(wx/TS),ty=floor(wy/TS);
+  if(inW(tx,ty)){const t=TILE[til(tx,ty)];if(isInterTile(t)&&dist(wx,wy,pl.x,pl.y)<150){interactKey();return true;}}
+  return false;}
+function interactNearest(){const pl=G.player;if(!pl||pl.dead)return;
+  if(G.uiOpen||G.chestOpen){closePanels();return;}
+  updateMouseWorld();
+  if(tapInteract())return;
+  let best=null,bd=999;for(const n of G.npc){if(n.dead)continue;const d=dist(n.x,n.y,pl.x,pl.y);if(d<bd){bd=d;best=n;}}
+  if(best&&bd<140){G.npcNear=best;npcInteract(best);return;}
+  const ptx=floor((pl.x+pl.w/2)/TS),pty=floor((pl.y+pl.h/2)/TS);
+  for(let r=1;r<=3;r++)for(let y=pty-r;y<=pty+r;y++)for(let x=ptx-r;x<=ptx+r;x++){
+    if(!inW(x,y))continue;if(!isInterTile(TILE[til(x,y)]))continue;
+    if(dist(x*TS+8,y*TS+8,pl.x,pl.y)>150)continue;
+    G.mouse.world.x=x*TS+8;G.mouse.world.y=y*TS+8;
+    G.mouse.x=(x*TS+8-cam.x)*G.cam.zoom;G.mouse.y=(y*TS+8-cam.y)*G.cam.zoom;
+    interactKey();return;}
+  addFloat(pl.x,pl.y-10,"附近没有可交互的目标","#c8c8d8");}
 function interactKey(){const pl=G.player;if(!pl)return;const wx=G.mouse.world.x,wy=G.mouse.world.y;
   const npc=npcForPos(wx,wy)||G.npcNear;if(npc&&dist(npc.x,npc.y,pl.x,pl.y)<110){npcInteract(npc);return;}
   const tx=floor(wx/TS),ty=floor(wy/TS);const t=TILE[til(tx,ty)];
@@ -2966,11 +3011,11 @@ function update(dt){const pl=G.player;if(!pl||G.screen!=="play")return;
   W.tick++;G.tick++;
   updateMouseWorld();
   updatePlayer(pl,dt);
-  if(G.mouse.down&&!pl.dead){const s=pl.inv[pl.hot];
+  if(G.mouse.down&&!pl.dead){pl.mineIdleT=0;const s=pl.inv[pl.hot];
     if(s){const it=ITEMS[s.id];
       if(it.t==="tool")useHeldItem(pl,G.mouse.world,true,dt);
       else if(pl.useCd<=0)useHeldItem(pl,G.mouse.world,false,dt);}}
-  else{pl.mine=null;pl.mineItem=null;}
+  else{pl.mineIdleT=(pl.mineIdleT||0)+dt;if(pl.mineIdleT>0.35){pl.mine=null;pl.mineItem=null;pl.mineIdleT=0;}}
   updateSwing(pl,dt);
   updateEnemies(dt);updateProj(dt);updateDrops(dt);updateParticles(dt);updateMinions(dt);
   updateBuffs(pl,dt);
@@ -3010,7 +3055,8 @@ window.__terra={G:G,W:W,TILE:TILE,TID:TID,ITEMS:ITEMS,RECIPES:RECIPES,startNewWo
   findRoomFor:findRoomFor,startInvasion:startInvasion,meteorLand:meteorLand,shatterOrb:shatterOrb,startHardmode:startHardmode,
   respawn:respawn,openChestAt:openChestAt,openShop:openShop,pickups:()=>G.drops.map(d=>d.id),npcList:()=>G.npc.map(n=>n.type),
   oMetrics:oMetrics,portraitNow:portraitNow,updateOrientation:updateOrientation,resize:resize,isTouch:()=>isTouch,ART:ART,artBottomRow:artBottomRow,
-  ROT:ROT,setRot:setRot,cvPoint:cvPoint,logicalSize:logicalSize,requestLandscape:requestLandscape};
+  ROT:ROT,setRot:setRot,cvPoint:cvPoint,logicalSize:logicalSize,requestLandscape:requestLandscape,
+  interactNearest:interactNearest,tapInteract:tapInteract,isInterTile:isInterTile};
 initGame();
 </script>
 </body>
