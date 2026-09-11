@@ -409,8 +409,9 @@ window.addEventListener("orientationchange",function(){ setTimeout(resizeCanvas,
    输入系统：按键映射 / 手柄 / 指令识别（236 214 623 41236 蓄力 等）
    ============================================================================ */
 var BTN = { A:1, B:2, C:4, D:8 };
+var BIND_VER = 2;
 var DEFAULT_KEYS = {
-  p1:{ left:["KeyA"], right:["KeyD"], up:["KeyW"], down:["KeyS"], A:["KeyJ"], B:["KeyK"], C:["KeyU"], D:["KeyI"], start:["Enter","Escape","KeyP"] },
+  p1:{ left:["KeyA"], right:["KeyD"], up:["KeyW"], down:["KeyS"], A:["KeyJ"], B:["KeyK"], C:["KeyL"], D:["Semicolon"], start:["Enter","Escape","KeyP"] },
   p2:{ left:["ArrowLeft"], right:["ArrowRight"], up:["ArrowUp"], down:["ArrowDown"], A:["Numpad1"], B:["Numpad2"],
        C:["Numpad4"], D:["Numpad5"], start:["NumpadEnter","ShiftRight"] }
 };
@@ -419,15 +420,22 @@ function loadBind(){
   BIND=null;
   try { var s=localStorage.getItem("kof.bind"); if (s) BIND=JSON.parse(s); } catch(e){}
   if (!BIND || !BIND.p1 || !BIND.p2) BIND=JSON.parse(JSON.stringify(DEFAULT_KEYS));
+  else {
+    var ver=0; try{ ver=parseInt(localStorage.getItem("kof.bindVer")||"0",10)||0; }catch(e){}
+    if (ver<2 && BIND.p1.C && BIND.p1.C[0]==="KeyU" && BIND.p1.D && BIND.p1.D[0]==="KeyI"){
+      BIND.p1.C=["KeyL"]; BIND.p1.D=["Semicolon"];
+      try{ localStorage.setItem("kof.bind",JSON.stringify(BIND)); localStorage.setItem("kof.bindVer",String(BIND_VER)); }catch(e){}
+    } else if (ver<2){ try{ localStorage.setItem("kof.bindVer",String(BIND_VER)); }catch(e){} }
+  }
   KEYMAP={};
   for (var pid in BIND){ for (var act in BIND[pid]){ var arr=BIND[pid][act]; for (var i=0;i<arr.length;i++) KEYMAP[arr[i]]={ p:pid, a:act }; } }
 }
-function saveBind(){ try{ localStorage.setItem("kof.bind",JSON.stringify(BIND)); }catch(e){} loadBind(); }
+function saveBind(){ try{ localStorage.setItem("kof.bind",JSON.stringify(BIND)); localStorage.setItem("kof.bindVer",String(BIND_VER)); }catch(e){} loadBind(); }
 loadBind();
 var REBIND_ACTIONS=["left","right","up","down","A","B","C","D"];
 var REBIND_NAMES={left:"左",right:"右",up:"上",down:"下",A:"轻拳 A",B:"轻脚 B",C:"重拳 C",D:"重脚 D"};
 function keyName(code){
-  var m={ArrowLeft:"←",ArrowRight:"→",ArrowUp:"↑",ArrowDown:"↓",Space:"SP",Escape:"Esc",Enter:"Ent",NumpadEnter:"NumEnt",ShiftRight:"RShift",ControlLeft:"LCtrl",ControlRight:"RCtrl"};
+  var m={ArrowLeft:"←",ArrowRight:"→",ArrowUp:"↑",ArrowDown:"↓",Space:"SP",Escape:"Esc",Enter:"Ent",NumpadEnter:"NumEnt",ShiftRight:"RShift",ControlLeft:"LCtrl",ControlRight:"RCtrl",Semicolon:";",Quote:"'",Comma:",",Period:".",Slash:"/"};
   return m[code]||String(code||"").replace(/^Key/,"").replace(/^Digit/,"").replace(/^Numpad/,"Num");
 }
 function keySummary(pid){
@@ -2734,7 +2742,8 @@ function drawTitle(){
     var sel=j===GAME.menuIdx;
     txt(ctx, TITLE_MENU[j].n, 486, 120+j*24, sel?"#ffd25a":"#8a92b8", 12, "right");
   }
-  txt(ctx, "<< A/J 确定   B/K 返回   W S 选择 >>", VW/2, VH-14, "#7d84a8", 10,"center");
+  txt(ctx, "1P  WASD 移动 + J/K/L/; 攻击     2P  方向键 + 小键盘 1/2/4/5", VW/2, VH-23, "#8fa8d8", 9,"center");
+  txt(ctx, "<< J 确定   K 返回   W/S 选择 >>", VW/2, VH-10, "#7d84a8", 9,"center");
   var blink=(Math.floor(TITLET/26)%2)?"":"INSERT COIN";
   txt(ctx, blink, 60, VH-14, "#ff5a3a", 11,"left");
   txt(ctx, "ARCADE FIGHTER 97  �  原创像素格斗", VW-16, VH-14, "#5a6088", 9, "right");
