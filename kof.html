@@ -670,6 +670,13 @@ function stickSector(x,y){
   var dx=x-(r.left+r.width/2), dy=y-(r.top+r.height/2);
   if (Math.sqrt(dx*dx+dy*dy)<r.width*0.18) return 5;
   var a=Math.atan2(dy,dx)*180/Math.PI;
+  /* 强制横屏时 body 被整体 rotate(±90°)（见 html.rotmode.rotA/.rotB），
+     而 clientX/Y 是未旋转的视口坐标 —— 不补回这份旋转，八个方向会整体偏 90°，
+     表现为 rotB 下按「上」出「右」、其余方向同样错位。 */
+  var hc=document.documentElement.classList;
+  if (hc.contains("rotA")) a+=90;
+  else if (hc.contains("rotB")) a-=90;
+  a=((a%360)+540)%360-180;
   if (a>=-22.5&&a<22.5) return 6;
   if (a>=22.5&&a<67.5) return 3;
   if (a>=67.5&&a<112.5) return 2;
@@ -3166,11 +3173,19 @@ window.__kof = {
     var fails=[], layer=$("touch"), pad=$("dpad"), was=layer.classList.contains("on");
     layer.classList.add("on");
     var r=pad.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2, rad=r.width/2;
-    var want={0:6,45:3,90:2,135:1,180:4,225:7,270:8,315:9};
-    for (var ang in want){
-      var a=ang*Math.PI/180;
-      var got=stickSector(cx+Math.cos(a)*rad*0.8, cy+Math.sin(a)*rad*0.8);
-      if (got!==want[ang]) fails.push("摇杆 "+ang+"° 得到 "+got+"，应为 "+want[ang]);
+    /* 基准点取「箭头实际渲染位置」，强制横屏整体旋转后同样成立（按视觉上的上就该出上） */
+    function ctr(cls){ var q=pad.querySelector("."+cls).getBoundingClientRect();
+      return { x:q.left+q.width/2, y:q.top+q.height/2 }; }
+    var AR={ u:ctr("u"), d:ctr("d"), l:ctr("l"), r:ctr("r") };
+    function away(p,q){
+      var mx=(AR[p].x+AR[q].x)/2-cx, my=(AR[p].y+AR[q].y)/2-cy, m=Math.sqrt(mx*mx+my*my)||1;
+      return { x:cx+mx/m*rad*0.7, y:cy+my/m*rad*0.7 };
+    }
+    var cases=[["上",8,AR.u],["下",2,AR.d],["左",4,AR.l],["右",6,AR.r],
+      ["左上",7,away("u","l")],["右上",9,away("u","r")],["左下",1,away("d","l")],["右下",3,away("d","r")]];
+    for (var ci=0;ci<cases.length;ci++){
+      var got=stickSector(cases[ci][2].x, cases[ci][2].y);
+      if (got!==cases[ci][1]) fails.push("按「"+cases[ci][0]+"」得到方向 "+got+"，应为 "+cases[ci][1]);
     }
     var ids=["btnA","btnB","btnC","btnD","btnAB","btnBC"], rr=[];
     for (var i=0;i<ids.length;i++){
