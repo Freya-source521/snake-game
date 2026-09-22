@@ -39,20 +39,24 @@
   #touch.on{display:block}
   .tb{position:absolute;pointer-events:auto;display:flex;align-items:center;justify-content:center;
       font:800 12px/1 "Segoe UI",system-ui,sans-serif;color:#f2f5ff;text-shadow:0 1px 2px rgba(0,0,0,.9);
-      background:rgba(14,18,32,.30);border:2px solid rgba(170,190,240,.42);border-radius:50%;touch-action:none}
-  .tb:active,.tb.dn{background:rgba(96,140,220,.55);border-color:#e6eeff}
-  #dpad{position:absolute;left:calc(2% + env(safe-area-inset-left,0px));bottom:calc(4% + env(safe-area-inset-bottom,0px));width:24%;padding-top:24%}
-  #dpad .tb{width:33%;height:33%;border-radius:10%;font-size:14px}
+      background:rgba(10,14,26,.40);border:2px solid rgba(190,210,245,.60);border-radius:50%;touch-action:none}
+  .tb:active,.tb.dn{background:rgba(96,140,220,.62);border-color:#e6eeff}
+  /* 方向盘整块作为一个 8 向摇杆的触摸面，四个箭头只是视觉反馈（逻辑见 bindStick） */
+  #dpad{position:absolute;left:calc(1.5% + env(safe-area-inset-left,0px));bottom:calc(3% + env(safe-area-inset-bottom,0px));width:24%;padding-top:24%;
+        pointer-events:auto;touch-action:none}
+  #dpad .tb{width:33%;height:33%;border-radius:10%;font-size:14px;pointer-events:none}
   #dpad .u{left:33.5%;top:0}  #dpad .d{left:33.5%;bottom:0}
   #dpad .l{left:0;top:33.5%}  #dpad .r{right:0;top:33.5%}
   #dpad .c{left:33.5%;top:33.5%;background:rgba(14,18,32,.16);border-style:dashed}
-  #btnA{right:calc(19% + env(safe-area-inset-right,0px));bottom:calc(24% + env(safe-area-inset-bottom,0px));width:11%;padding-top:11%}
-  #btnB{right:calc(7% + env(safe-area-inset-right,0px));bottom:calc(24% + env(safe-area-inset-bottom,0px));width:11%;padding-top:11%}
-  #btnC{right:calc(19% + env(safe-area-inset-right,0px));bottom:calc(6% + env(safe-area-inset-bottom,0px));width:11%;padding-top:11%}
-  #btnD{right:calc(7% + env(safe-area-inset-right,0px));bottom:calc(6% + env(safe-area-inset-bottom,0px));width:11%;padding-top:11%}
-  #btnAB{right:calc(31% + env(safe-area-inset-right,0px));bottom:calc(7% + env(safe-area-inset-bottom,0px));width:8%;padding-top:8%;font-size:10px}
-  #btnBC{right:calc(31% + env(safe-area-inset-right,0px));bottom:calc(20% + env(safe-area-inset-bottom,0px));width:8%;padding-top:8%;font-size:10px}
-  #btnMenu{right:calc(2% + env(safe-area-inset-right,0px));top:calc(2.5% + env(safe-area-inset-top,0px));width:6%;padding-top:6%;font-size:11px}
+  /* aspect-ratio 保证真圆：原来用 padding-top 撑高会被内容行高拉成椭圆，A/C 与 AB/BC 互相压住 */
+  #btnA{right:calc(19% + env(safe-area-inset-right,0px));bottom:calc(25% + env(safe-area-inset-bottom,0px));width:10%;aspect-ratio:1}
+  #btnB{right:calc(7% + env(safe-area-inset-right,0px));bottom:calc(25% + env(safe-area-inset-bottom,0px));width:10%;aspect-ratio:1}
+  #btnC{right:calc(19% + env(safe-area-inset-right,0px));bottom:calc(4% + env(safe-area-inset-bottom,0px));width:10%;aspect-ratio:1}
+  #btnD{right:calc(7% + env(safe-area-inset-right,0px));bottom:calc(4% + env(safe-area-inset-bottom,0px));width:10%;aspect-ratio:1}
+  #btnAB{right:calc(30% + env(safe-area-inset-right,0px));bottom:calc(5% + env(safe-area-inset-bottom,0px));width:8%;aspect-ratio:1;font-size:10px}
+  #btnBC{right:calc(30% + env(safe-area-inset-right,0px));bottom:calc(21.5% + env(safe-area-inset-bottom,0px));width:8%;aspect-ratio:1;font-size:10px}
+  /* 暂停键放哪个角都会压住血条/头像/舞台名/气力槽，改放计时器下方的天空区，不挡任何 HUD */
+  #btnMenu{left:calc(50% - 3%);top:calc(10% + env(safe-area-inset-top,0px));width:6%;aspect-ratio:1;font-size:13px}
 </style>
 </head>
 <body>
@@ -60,11 +64,11 @@
   <canvas id="cv" width="640" height="360"></canvas>
   <div id="touch">
     <div id="dpad">
-      <div class="tb u" data-k="up">&#9650;</div>
-      <div class="tb d" data-k="down">&#9660;</div>
-      <div class="tb l" data-k="left">&#9664;</div>
-      <div class="tb r" data-k="right">&#9654;</div>
-      <div class="tb c" style="pointer-events:none"></div>
+      <div class="tb u">&#9650;</div>
+      <div class="tb d">&#9660;</div>
+      <div class="tb l">&#9664;</div>
+      <div class="tb r">&#9654;</div>
+      <div class="tb c"></div>
     </div>
     <div class="tb" id="btnA" data-k="A">A</div>
     <div class="tb" id="btnB" data-k="B">B</div>
@@ -271,6 +275,8 @@ var SND = (function(){
 var ROT = { on:false, dir:1 };
 try { var _rd = parseInt(localStorage.getItem("kof.rotDir")||"",10); if (_rd===1||_rd===-1) ROT.dir=_rd; } catch(e){}
 var isTouch=false, landscapeWanted=false, forceLandscape=false, lastOrientFlip=null, portraitSince=null;
+/* 触屏简易指令：虚拟摇杆搓招比街机摇杆难，放宽指令识别窗口（仅放宽时间，不删斜方向，避免走路+A 误出必杀） */
+var SIMPLE=false;
 var SCALE = 1;
 function logicalSize(){
   var iw=Math.max(1,Math.round(window.innerWidth||1)), ih=Math.max(1,Math.round(window.innerHeight||1));
@@ -390,6 +396,7 @@ function detectTouch(){
   var ua=navigator.userAgent||"";
   isTouch=("ontouchstart" in window)||(navigator.maxTouchPoints||0)>0||(window.matchMedia&&matchMedia("(pointer:coarse)").matches)||
     /Android|iPhone|iPad|iPod|Mobile|HarmonyOS|Harmony|Silk|Kindle/i.test(ua);
+  SIMPLE=isTouch;
   if (document.body) document.body.classList.toggle("touch",isTouch);
   syncTouchLayer(); updateOrientation(true);
 }
@@ -538,6 +545,7 @@ function relDir(d, facing){
 InputPlayer.prototype.matchSeq=function(seq, facing, window, endFrames){
   var h=this.hist, n=h.length;
   if (!n) return false;
+  if (SIMPLE) window=Math.round(window*1.4);
   var si=seq.length-1, i=n-1, lastF=-1;
   endFrames=endFrames==null?8:endFrames;
   for (; i>=0 && FRAME-h[i].f<=window; i--){
@@ -599,7 +607,8 @@ window.addEventListener("blur",function(){
 function bindTouchPad(){
   var layer=$("touch"); if (!layer) return;
   var nodes=layer.querySelectorAll("[data-k]");
-  var alias={ up:"up",down:"down",left:"left",right:"right",A:"A",B:"B",C:"C",D:"D",AB:"AB",BC:"BC",menu:"menu" };
+  /* menu 必须映射成 "start"：snap() 只认 st.start，映射成 "menu" 会让暂停键点了没反应 */
+  var alias={ A:"A",B:"B",C:"C",D:"D",AB:"AB",BC:"BC",menu:"start" };
   for (var i=0;i<nodes.length;i++)(function(el){
     var k=alias[el.getAttribute("data-k")]; if (!k) return;
     function down(ev){ ev.preventDefault(); SND.resume();
@@ -622,11 +631,59 @@ function bindTouchPad(){
     el.addEventListener("pointerleave",up);
     el.addEventListener("contextmenu",function(e){ e.preventDefault(); });
   })(nodes[i]);
+  bindStick();
+}
+/* ---------- 触屏：方向盘 = 8 向摇杆 ----------
+   原来四个箭头是四个独立按钮，单指只能命中其中一个，斜方向永远按不出来（接缝处甚至是死区），
+   必杀技 236/214/623 全部无法输入。改成整块触摸面按角度取 8 方向后，单指滑动即可搓招。 */
+function bindStick(){
+  var pad=$("dpad"); if (!pad) return;
+  var AXIS={ 1:["down","left"], 2:["down"], 3:["down","right"], 4:["left"], 6:["right"], 7:["up","left"], 8:["up"], 9:["up","right"] };
+  var CLS={ up:"u",down:"d",left:"l",right:"r" };
+  function setDir(d){
+    var t=IN[0].tkeys||(IN[0].tkeys={}), la=IN[0].latch||(IN[0].latch={});
+    var m=AXIS[d]||[];
+    for (var k in CLS){
+      var on=m.indexOf(k)>=0;
+      if (on && !t[k]) la[k]=true;
+      t[k]=on;
+      var el=pad.querySelector("."+CLS[k]);
+      if (el && on!==el.classList.contains("dn")) el.classList.toggle("dn",on);
+    }
+  }
+  function down(ev){ ev.preventDefault(); SND.resume();
+    if (pad.setPointerCapture && ev.pointerId!=null){ try{ pad.setPointerCapture(ev.pointerId); }catch(e){} }
+    setDir(stickSector(ev.clientX, ev.clientY));
+  }
+  /* 拖动时持续跟随（原来每个按键各自 pointerleave 松手，滑动会卡在旧方向），也不绑 pointerleave */
+  function move(ev){ if (ev.buttons===0 && ev.pointerType==="mouse") return; ev.preventDefault(); SND.resume(); setDir(stickSector(ev.clientX, ev.clientY)); }
+  function up(ev){ if (ev) ev.preventDefault(); setDir(5); }
+  pad.addEventListener("pointerdown",down);
+  pad.addEventListener("pointermove",move);
+  pad.addEventListener("pointerup",up);
+  pad.addEventListener("pointercancel",up);
+  pad.addEventListener("contextmenu",function(e){ e.preventDefault(); });
+}
+/* 触点 → 8 方向（相对摇杆中心的角度扇区；中心 18% 为死区，拇指停中间 = 中立） */
+function stickSector(x,y){
+  var pad=$("dpad"), r=pad.getBoundingClientRect();
+  var dx=x-(r.left+r.width/2), dy=y-(r.top+r.height/2);
+  if (Math.sqrt(dx*dx+dy*dy)<r.width*0.18) return 5;
+  var a=Math.atan2(dy,dx)*180/Math.PI;
+  if (a>=-22.5&&a<22.5) return 6;
+  if (a>=22.5&&a<67.5) return 3;
+  if (a>=67.5&&a<112.5) return 2;
+  if (a>=112.5&&a<157.5) return 1;
+  if (a>=157.5||a<-157.5) return 4;
+  if (a>=-157.5&&a<-112.5) return 7;
+  if (a>=-112.5&&a<-67.5) return 8;
+  return 9;
 }
 var touchShown=false;
 function syncTouchLayer(){
   var layer=$("touch"); if (!layer) return;
-  var want = isTouch && (GAME.state==="fight" || GAME.state==="vs" || GAME.state==="result" || GAME.state==="pause");
+  /* 原来只在战斗/暂停显示，导致标题页、选人、出招表、街机续关全都点不动 —— 触屏设备一律显示 */
+  var want = isTouch;
   if (want!==touchShown){ touchShown=want; layer.classList.toggle("on",want); }
 }
 
@@ -2404,8 +2461,9 @@ function drawHud(g){
   g.fillStyle=secs<=10?"#ff4a3a":"#ffe08a";
   g.fillText(pad2(secs), VW/2, 21);
   /* 气力槽 */
-  meter(g, 14, VH-20, 0);
-  meter(g, VW-14-150, VH-20, 1);
+  /* 原来贴在底边，正好被摇杆和按键压住；移到血条下方的空白带 */
+  meter(g, 12, 67, 0);
+  meter(g, VW-12-150, 67, 1);
   /* 连击数 */
   comboBox(g, 0, a.combo);
   comboBox(g, 1, b.combo);
@@ -2418,8 +2476,8 @@ function drawHud(g){
     g.textAlign="left"; g.font="bold 10px monospace"; g.fillStyle="#7cf0ff";
     var lines=["训练模式  F1 假人:"+({stand:"站立",block:"防御",crouch:"下蹲",jump:"跳跃",cpu:"CPU",none:"不动作"}[GAME.train.dummy]||"-"),
       "F2 体力回复:"+(GAME.train.regen?"开":"关")+"  F3 判定框:"+(GAME.train.hitbox?"开":"关")+"  F4 清空气槽"];
-    for (var i=0;i<lines.length;i++) g.fillText(lines[i], 12, 64+i*12);
-    if (GAME.train.lastDmg) { g.fillStyle="#ffd25a"; g.fillText("最近伤害 "+GAME.train.lastDmg+" / 最大连段 "+GAME.train.maxCombo, 12, 64+lines.length*12); }
+    for (var i=0;i<lines.length;i++) g.fillText(lines[i], 12, 86+i*12);
+    if (GAME.train.lastDmg) { g.fillStyle="#ffd25a"; g.fillText("最近伤害 "+GAME.train.lastDmg+" / 最大连段 "+GAME.train.maxCombo, 12, 86+lines.length*12); }
   }
   if (GAME.toast&&GAME.toast.t>0){
     var ta2=clamp(GAME.toast.t/30,0,1); g.globalAlpha=ta2;
@@ -2740,10 +2798,11 @@ function drawTitle(){
   /* 菜单列 */
   for (var j=0;j<TITLE_MENU.length;j++){
     var sel=j===GAME.menuIdx;
-    txt(ctx, TITLE_MENU[j].n, 486, 120+j*24, sel?"#ffd25a":"#8a92b8", 12, "right");
+    /* 右移会被右侧触屏按键压住，菜单列左移让位 */
+    txt(ctx, TITLE_MENU[j].n, isTouch?430:486, 120+j*24, sel?"#ffd25a":"#8a92b8", 12, "right");
   }
-  txt(ctx, "1P  WASD 移动 + J/K/L/; 攻击     2P  方向键 + 小键盘 1/2/4/5", VW/2, VH-23, "#8fa8d8", 9,"center");
-  txt(ctx, "<< J 确定   K 返回   W/S 选择 >>", VW/2, VH-10, "#7d84a8", 9,"center");
+  txt(ctx, isTouch?"摇杆移动 · 滑动搓招 · 右侧按键攻击":"1P  WASD 移动 + J/K/L/; 攻击     2P  方向键 + 小键盘 1/2/4/5", VW/2, VH-23, "#8fa8d8", 9,"center");
+  txt(ctx, isTouch?"摇杆选择 · A 确定 · B 返回":"<< J 确定   K 返回   W/S 选择 >>", VW/2, VH-10, "#7d84a8", 9,"center");
   var blink=(Math.floor(TITLET/26)%2)?"":"INSERT COIN";
   txt(ctx, blink, 60, VH-14, "#ff5a3a", 11,"left");
   txt(ctx, "ARCADE FIGHTER 97  �  原创像素格斗", VW-16, VH-14, "#5a6088", 9, "right");
@@ -2784,7 +2843,7 @@ function drawSelect(){
       else txt(ctx, "-", bx+24, VH-42+s*18, "#4a4f6a", 11, "center");
     }
   }
-  txt(ctx, "A/J 选中   B/K 取消   ESC 返回", VW-16, VH-8, "#7d84a8", 10, "right");
+  txt(ctx, isTouch?"A 选中   B 取消":"A/J 选中   B/K 取消   ESC 返回", VW-16, VH-8, "#7d84a8", 10, "right");
   if (GAME.toast&&GAME.toast.t>0){
     var ta=clamp(GAME.toast.t/30,0,1);
     ctx.globalAlpha=ta; PX(ctx,VW/2-110,VH-88,220,18,"rgba(160,40,30,0.85)");
@@ -2806,7 +2865,7 @@ function drawOrder(){
     txt(ctx, CMAP[picks[i]].styleName, x+46, y+124, "#9fb0d8", 9,"center");
     if (sel){ ctx.strokeStyle="#ffd25a"; ctx.lineWidth=2; ctx.strokeRect(x+0.5,y+0.5,91,139); }
   }
-  txt(ctx, "← → 选择位置   ↑ ↓ 交换顺序   A/J 确定   B/K 返回", VW/2, VH-40, "#9fb0d8", 11, "center");
+  txt(ctx, isTouch?"摇杆 ←→ 选择位置   ↑↓ 交换顺序   A 确定   B 返回":"← → 选择位置   ↑ ↓ 交换顺序   A/J 确定   B/K 返回", VW/2, VH-40, "#9fb0d8", 11, "center");
   txt(ctx, "先出场", VW/2-150+46, 100, "#7cf0ff", 9, "center");
   txt(ctx, "最后出场", VW/2+150+46, 100, "#ff5a3a", 9, "center");
 }
@@ -2825,7 +2884,7 @@ function drawMoveList(){
     txt(ctx, rows[i][0], 24, 110+i*22, "#ffd25a", 10);
     txt(ctx, rows[i][1], 24, 122+i*22, "#c8cde8", 9);
   }
-  txt(ctx, "← →  切换角色      B/K 返回", VW-20, VH-14, "#7d84a8", 10,"right");
+  txt(ctx, isTouch?"摇杆 ← →  切换角色      B 返回":"← →  切换角色      B/K 返回", VW-20, VH-14, "#7d84a8", 10,"right");
   var y=44, mv=movesOf(ch);
   var order=["5A","5B","5C","5D","2A","2B","2C","2D","jA","jB","jC","jD","6A","6B","THR","AB","BC"];
   txt(ctx, "基 本 动 作 与 通 常 技", 210, y-16, "#7cf0ff", 12);
@@ -2870,7 +2929,7 @@ function drawSettings(){
     txt(ctx, (sel?"▶ ":"  ")+items[i][0], VW/2-160, y, sel?"#ffd25a":"#c8cde8", 13);
     txt(ctx, items[i][1], VW/2+160, y, "#7cf0ff", (i===5||i===6)?10:12, "right");
   }
-  txt(ctx, "↑ ↓ 选择   ← → 调整   A/J 确认   B/K 返回", VW/2, VH-14, "#9fb0d8", 10, "center");
+  txt(ctx, isTouch?"摇杆 ↑↓ 选择   ←→ 调整   A 确认   B 返回":"↑ ↓ 选择   ← → 调整   A/J 确认   B/K 返回", VW/2, VH-14, "#9fb0d8", 10, "center");
   if (GAME.rebind){
     panel(ctx,VW/2-190,112,380,116,0.96);
     txt(ctx,"按 键 自 定 义",VW/2,140,"#ffd25a",18,"center");
@@ -2946,7 +3005,7 @@ function drawResult(){
     txt(ctx,"通 关",VW/2,120,"#ffd25a",40,"center");
     txt(ctx,"你击败了全部挑战者与霸王，成为新的格斗之王。",VW/2,160,"#ffe9a8",13,"center");
     txt(ctx,"THE KING OF FIGHTERS 97  �  致敬版",VW/2,186,"#7cf0ff",11,"center");
-    txt(ctx,"A / J 返回标题",VW/2,240,"#9fb0d8",12,"center");
+    txt(ctx,isTouch?"点 A 返回标题":"A / J 返回标题",VW/2,240,"#9fb0d8",12,"center");
     return;
   }
   if (win===0){
@@ -2971,7 +3030,7 @@ function drawContinue(){
   txt(ctx,"CONTINUE?",VW/2,140,"#ff5a3a",36,"center");
   txt(ctx,"投币继续挑战",VW/2,172,"#ffe9a8",14,"center");
   txt(ctx,"倒计时 "+Math.ceil(GAME.contT/60),VW/2,206,"#7cf0ff",20,"center");
-  txt(ctx,"A / J 继续    等待结束则返回标题",VW/2,250,"#9fb0d8",11,"center");
+  txt(ctx,isTouch?"点 A 继续    等待结束则返回标题":"A / J 继续    等待结束则返回标题",VW/2,250,"#9fb0d8",11,"center");
 }
 /* ============================================================================
    主循环
@@ -3007,7 +3066,7 @@ function drawPause(){
     var sel=i===GAME.pauseIdx;
     txt(ctx,(sel?"▶ ":"  ")+items[i], VW/2, 140+i*28, sel?"#ffd25a":"#9fb0d8", 14, "center");
   }
-  txt(ctx,"ESC / START 返回",VW/2,VH-24,"#7d84a8",11,"center");
+  txt(ctx,isTouch?"摇杆选择   A 确定   B 返回":"ESC / START 返回",VW/2,VH-24,"#7d84a8",11,"center");
 }
 function stepGame(){
   FRAME++;
@@ -3101,6 +3160,31 @@ window.__kof = {
   poseKey:poseKey, setSt:setSt, spriteFrame:spriteFrame,
   forceState:function(s){ GAME.state=s; },
   ai:function(on){ MATCH.f[1].ai=on?makeAI(2):null; },
+  /* 自检：手机端两处最容易悄悄坏掉的逻辑 —— 摇杆方向映射、按键布局不变量。
+     控制台执行 __kof.selftest() 即可，返回 "OK" 表示通过。 */
+  selftest:function(){
+    var fails=[], layer=$("touch"), pad=$("dpad"), was=layer.classList.contains("on");
+    layer.classList.add("on");
+    var r=pad.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2, rad=r.width/2;
+    var want={0:6,45:3,90:2,135:1,180:4,225:7,270:8,315:9};
+    for (var ang in want){
+      var a=ang*Math.PI/180;
+      var got=stickSector(cx+Math.cos(a)*rad*0.8, cy+Math.sin(a)*rad*0.8);
+      if (got!==want[ang]) fails.push("摇杆 "+ang+"° 得到 "+got+"，应为 "+want[ang]);
+    }
+    var ids=["btnA","btnB","btnC","btnD","btnAB","btnBC"], rr=[];
+    for (var i=0;i<ids.length;i++){
+      var q=$(ids[i]).getBoundingClientRect();
+      if (Math.abs(q.width-q.height)>1) fails.push(ids[i]+" 不是正圆（"+Math.round(q.width)+"x"+Math.round(q.height)+"）");
+      rr.push({ n:ids[i], cx:q.left+q.width/2, cy:q.top+q.height/2, r:q.width/2 });
+    }
+    for (var m=0;m<rr.length;m++) for (var n2=m+1;n2<rr.length;n2++){
+      var dx=rr[m].cx-rr[n2].cx, dy=rr[m].cy-rr[n2].cy;
+      if (Math.sqrt(dx*dx+dy*dy) < rr[m].r+rr[n2].r) fails.push(rr[m].n+" 与 "+rr[n2].n+" 重叠");
+    }
+    if (!was) layer.classList.remove("on");
+    return fails.length ? fails : "OK";
+  },
   rot:function(){ return { on:ROT.on, dir:ROT.dir, isTouch:isTouch, portrait:portraitNow(), logical:logicalSize(), scale:SCALE }; },
   setRot:setRot, detectTouch:detectTouch,
   teams:function(){ return GAME.arcade?GAME.arcade.teams:null; }
