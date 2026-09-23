@@ -27,7 +27,6 @@ body::before{
 .wrap{position:relative; z-index:1; max-width:1000px; margin:0 auto; padding:26px 18px 210px; transition:padding-bottom .3s ease}
 header.top{display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:20px}
 h1{font-size:21px; margin:0; font-weight:600; letter-spacing:.4px}
-.sub{margin:7px 0 0; font-size:12.5px; color:var(--muted); line-height:1.6}
 .badge{font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:5px 11px; background:rgba(255,255,255,.02); white-space:nowrap}
 
 .panel{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px}
@@ -161,7 +160,6 @@ body.dock-collapsed .wrap{padding-bottom:96px}
   <header class="top">
     <div>
       <h1>助眠白噪音</h1>
-      <p class="sub">全部声音由 Web Audio 代码实时合成，无音频文件 · 断网可用</p>
     </div>
     <span class="badge" id="engineBadge">引擎待启动</span>
   </header>
@@ -228,7 +226,7 @@ body.dock-collapsed .wrap{padding-bottom:96px}
       </svg>
     </div>
     <h2>助眠白噪音</h2>
-    <p>雨声 · 雷声 · 海浪 · 风声 · 篝火 · 鸟叫 · 风扇 · 白噪音<br>自由叠加混音，配合场景预设、呼吸引导与定时关闭。</p>
+    <p>雨声 · 雷声 · 海浪 · 风声 · 篝火 · 鸟叫 · 风扇 · 白噪音 · 敲击音 · 口腔音<br>自由叠加混音，配合场景预设、呼吸引导与定时关闭。</p>
     <button class="btn primary" id="startBtn">开始播放</button>
     <p class="tiny">首次点击用于启用浏览器音频权限</p>
   </div>
@@ -249,7 +247,9 @@ body.dock-collapsed .wrap{padding-bottom:96px}
     { id: 'fire',    name: '篝火',   icon: 'fire'    },
     { id: 'birds',   name: '鸟叫',   icon: 'birds'   },
     { id: 'fan',     name: '风扇',   icon: 'fan'     },
-    { id: 'white',   name: '白噪音', icon: 'white'   }
+    { id: 'white',   name: '白噪音', icon: 'white'   },
+    { id: 'tap',     name: '敲击音', icon: 'tap'     },
+    { id: 'mouth',   name: '口腔音', icon: 'mouth'   }
   ];
 
   var ICONS = {
@@ -260,7 +260,9 @@ body.dock-collapsed .wrap{padding-bottom:96px}
     fire:    '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/>',
     birds:   '<path d="M16 7h.01"/><path d="M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20"/><path d="m20 7 2 .5-2 .5"/><path d="M10 18v3"/><path d="M14 17.75V21"/><path d="M7 18a6 6 0 0 0 3.84-10.61"/>',
     fan:     '<circle cx="12" cy="12" r="2.2"/><path d="M12 10.2c0-2.6.4-5.4 2.2-6.8 1.7-1.3 3.9.1 3.9 2.2 0 2.3-3.2 3.7-6.1 4.6Z"/><path d="M12 10.2c0-2.6.4-5.4 2.2-6.8 1.7-1.3 3.9.1 3.9 2.2 0 2.3-3.2 3.7-6.1 4.6Z" transform="rotate(120 12 12)"/><path d="M12 10.2c0-2.6.4-5.4 2.2-6.8 1.7-1.3 3.9.1 3.9 2.2 0 2.3-3.2 3.7-6.1 4.6Z" transform="rotate(240 12 12)"/>',
-    white:   '<path d="M3 12h2.5l2-6 3 13 3-10 2.2 5.5H21"/>'
+    white:   '<path d="M3 12h2.5l2-6 3 13 3-10 2.2 5.5H21"/>',
+    tap:     '<circle cx="12" cy="12" r="3"/><path d="M12 2.6v3.1M12 18.3v3.1M2.6 12h3.1M18.3 12h3.1M5.4 5.4l2.2 2.2M16.4 16.4l2.2 2.2M18.6 5.4l-2.2 2.2M7.6 16.4l-2.2 2.2"/>',
+    mouth:   '<path d="M4 12.4c2.4-3.2 5-4.8 8-4.8s5.6 1.6 8 4.8"/><path d="M4 12.4c2.4 3.1 5 4.6 8 4.6s5.6-1.5 8-4.6"/><path d="M8.6 12.4h6.8"/>'
   };
 
   function svgIcon(name, size) {
@@ -296,7 +298,7 @@ body.dock-collapsed .wrap{padding-bottom:96px}
   var DEFAULTS = {
     master: 75,
     on:  { rain: true },
-    vol: { rain: 48, thunder: 34, waves: 52, wind: 44, fire: 46, birds: 42, fan: 40, white: 36 }
+    vol: { rain: 48, thunder: 34, waves: 52, wind: 44, fire: 46, birds: 42, fan: 40, white: 36, tap: 46, mouth: 42 }
   };
 
   /* ============================================================
@@ -721,9 +723,151 @@ body.dock-collapsed .wrap{padding-bottom:96px}
     startLoop(L, s);
   }
 
+  /* ---------- 敲击音 ---------- */
+  function buildTap(L) {
+    /* 极轻的房间底噪，避免没有敲击时完全死寂 */
+    var bed = noiseSrc(L, 'pink');
+    var lp = bq('lowpass', 900, 0.7);
+    var g = gnode(0.05);
+    bed.connect(lp); lp.connect(g); g.connect(L.out);
+    startLoop(L, bed);
+    var lfo = osc('sine', 0.07), lg = gnode(0.02);
+    lfo.connect(lg); lg.connect(g.gain); startOsc(L, lfo);
+
+    /* 成簇敲击：连续轻敲几下再停顿，更像真人手指 */
+    schedule(L, function () {
+      return Math.random() < 0.55 ? rand(0.11, 0.3) : rand(0.4, 1.6);
+    }, function (t) { tapOnce(L, t); }, 14);
+  }
+
+  function tapOnce(L, t) {
+    var woody = Math.random() < 0.62;                       /* 木质桌面 / 塑料与指甲 */
+    var f = woody ? rand(260, 620) : rand(1100, 2600);
+    var dur = woody ? rand(0.07, 0.16) : rand(0.03, 0.08);
+    var amp = rand(0.18, 0.55) * (woody ? 1 : 0.75);
+
+    /* 共鸣体：两个非谐波模态，敲上去有木头的咚声 */
+    var o1 = ctx.createOscillator(); o1.type = woody ? 'triangle' : 'sine';
+    var o2 = ctx.createOscillator(); o2.type = 'sine';
+    var g1 = gnode(0), g2 = gnode(0);
+    var body = bq('lowpass', woody ? 4200 : 9000, 0.7);
+    o1.frequency.setValueAtTime(f, t);
+    o1.frequency.exponentialRampToValueAtTime(f * 0.86, t + dur);
+    o2.frequency.setValueAtTime(f * 2.62, t);
+    o2.frequency.exponentialRampToValueAtTime(f * 2.1, t + dur * 0.7);
+    g1.gain.setValueAtTime(0.0001, t);
+    g1.gain.exponentialRampToValueAtTime(amp, t + 0.004);
+    g1.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    g2.gain.setValueAtTime(0.0001, t);
+    g2.gain.exponentialRampToValueAtTime(amp * 0.35, t + 0.003);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.6);
+    o1.connect(g1); g1.connect(body);
+    o2.connect(g2); g2.connect(body);
+    body.connect(L.out);
+    o1.start(t); o1.stop(t + dur + 0.05);
+    o2.start(t); o2.stop(t + dur + 0.05);
+    trackOneShot(L, o1, [o2, g1, g2, body]);
+
+    /* 敲击瞬态：指尖与指甲的哒声 */
+    var s = noiseSrc(L, 'white');
+    var hp = bq('highpass', woody ? 1800 : 3200, 0.7);
+    var gs = gnode(0);
+    s.connect(hp); hp.connect(gs); gs.connect(L.out);
+    gs.gain.setValueAtTime(0.0001, t);
+    gs.gain.exponentialRampToValueAtTime(amp * 0.5, t + 0.0015);
+    gs.gain.exponentialRampToValueAtTime(0.0001, t + rand(0.012, 0.03));
+    s.start(t, Math.random() * noiseBufs.white.duration);
+    s.stop(t + 0.07);
+    trackOneShot(L, s, [hp, gs]);
+  }
+
+  /* ---------- 口腔音 ---------- */
+  function buildMouth(L) {
+    /* 轻声耳语底噪：带通白噪 + 缓慢呼吸起伏 */
+    var whisper = noiseSrc(L, 'white');
+    var bp = bq('bandpass', 2400, 0.75);
+    var g = gnode(0.075);
+    whisper.connect(bp); bp.connect(g); g.connect(L.out);
+    startLoop(L, whisper);
+    var br = osc('sine', 0.16), bg = gnode(0.028);
+    br.connect(bg); bg.connect(g.gain); startOsc(L, br);
+    var body = noiseSrc(L, 'pink');
+    var blp = bq('lowpass', 700, 0.7);
+    var bgain = gnode(0.04);
+    body.connect(blp); blp.connect(bgain); bgain.connect(L.out);
+    startLoop(L, body);
+
+    schedule(L, function () {
+      return Math.random() < 0.5 ? rand(0.25, 0.75) : rand(0.6, 2.2);
+    }, function (t) {
+      var r = Math.random();
+      if (r < 0.45) lipSmack(L, t);
+      else if (r < 0.8) mouthClick(L, t);
+      else whisperBreath(L, t);
+    }, 14);
+  }
+
+  /* 咂嘴：湿滑的啵声 */
+  function lipSmack(L, t) {
+    var dur = rand(0.05, 0.12);
+    var amp = rand(0.3, 0.7);
+    var s = noiseSrc(L, 'white');
+    var bp = bq('bandpass', rand(1000, 2200), rand(1.2, 2.2));
+    var g = gnode(0);
+    s.connect(bp); bp.connect(g); g.connect(L.out);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(amp, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.start(t, Math.random() * noiseBufs.white.duration);
+    s.stop(t + dur + 0.02);
+    trackOneShot(L, s, [bp, g]);
+
+    var o = ctx.createOscillator(); o.type = 'sine';
+    var og = gnode(0);
+    o.frequency.setValueAtTime(rand(280, 520), t);
+    o.frequency.exponentialRampToValueAtTime(rand(90, 150), t + dur * 0.9);
+    og.gain.setValueAtTime(0.0001, t);
+    og.gain.exponentialRampToValueAtTime(amp * 0.55, t + 0.01);
+    og.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(og); og.connect(L.out);
+    o.start(t); o.stop(t + dur + 0.03);
+    trackOneShot(L, o, [og]);
+  }
+
+  /* 口腔轻响：极短的嗒声 */
+  function mouthClick(L, t) {
+    var dur = rand(0.006, 0.016);
+    var s = noiseSrc(L, 'white');
+    var bp = bq('bandpass', rand(2200, 4800), rand(1.2, 2.6));
+    var g = gnode(0);
+    s.connect(bp); bp.connect(g); g.connect(L.out);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(rand(0.18, 0.5), t + 0.0015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.start(t, Math.random() * noiseBufs.white.duration);
+    s.stop(t + dur + 0.02);
+    trackOneShot(L, s, [bp, g]);
+  }
+
+  /* 耳语般的呼气声 */
+  function whisperBreath(L, t) {
+    var dur = rand(0.4, 0.95);
+    var s = noiseSrc(L, 'white');
+    var bp = bq('bandpass', rand(1600, 3600), 0.8);
+    var g = gnode(0);
+    s.connect(bp); bp.connect(g); g.connect(L.out);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(rand(0.14, 0.3), t + dur * 0.35);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.start(t, Math.random() * noiseBufs.white.duration);
+    s.stop(t + dur + 0.05);
+    trackOneShot(L, s, [bp, g]);
+  }
+
   var BUILDERS = {
     rain: buildRain, thunder: buildThunder, waves: buildWaves, wind: buildWind,
-    fire: buildFire, birds: buildBirds, fan: buildFan, white: buildWhite
+    fire: buildFire, birds: buildBirds, fan: buildFan, white: buildWhite,
+    tap: buildTap, mouth: buildMouth
   };
 
   /* ---------- 图层生命周期 ---------- */
