@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>小游戏合集 · 拳皇风格 魂斗罗 像素世界 贪吃蛇 2048 消消乐 俄罗斯方块 数独 扫雷 五子棋 围棋 猪了个猪 合成大西瓜 水果忍者 愤怒的小鸟</title>
+<link rel="icon" href="./favicon.svg" />
+<style>
+  :root {
+    --bg: #0b0e1a; --panel: rgba(255,255,255,0.06); --border: rgba(255,255,255,0.12);
+    --accent: #38f0d0; --accent2: #7c6bff; --text: #e8ecff; --muted: #8a92b8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { min-height: 100%; }
+  body {
+    background: radial-gradient(1200px 800px at 50% 15%, #141a33 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 16px 24px; gap: 20px; min-height: 100vh;
+  }
+  h1 {
+    font-size: clamp(26px, 5vw, 40px); letter-spacing: 4px; text-align: center;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .sub { color: var(--muted); font-size: 14px; letter-spacing: 1px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 14px; width: 100%; max-width: 1400px; margin-top: 8px; }
+  a.card {
+    text-decoration: none; color: var(--text);
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 20px; padding: 26px 22px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  a.card:hover { transform: translateY(-4px); border-color: rgba(56,240,208,0.5); box-shadow: 0 16px 40px rgba(0,0,0,.45); }
+  .icon { width: 84px; height: 84px; border-radius: 22px; display: flex; align-items: center; justify-content: center; font-size: 44px; box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+  .c-snake { background: linear-gradient(135deg, #16a08d, #38f0d0); }
+  .c-2048 { background: linear-gradient(135deg, #1e5ac2, #38b6ff); }
+  .c-xxl { background: linear-gradient(135deg, #e04f62, #ff9a5e); }
+  .c-tetris { background: linear-gradient(135deg, #8a5cf6, #38b6ff); }
+  .c-sudoku { background: linear-gradient(135deg, #1f9d8f, #7c6bff); }
+  .c-mine { background: linear-gradient(135deg, #e04f62, #ff8a5e); }
+  .c-gomoku { background: linear-gradient(135deg, #3a4a8a, #38b6ff); }
+  .c-go { background: linear-gradient(135deg, #b08a3a, #d8b26a); }
+  .c-pig { background: linear-gradient(135deg, #ff7a94, #ffb3c1); }
+  .c-terra { background: linear-gradient(135deg, #2a6a3a, #7ad86a); }
+  .c-kof { background: linear-gradient(135deg, #7b1026, #e23a24 52%, #ffd35e); }
+  .c-contra { background: linear-gradient(135deg, #b8341f, #ffb44a); }
+  a.card.wide { grid-column: span 2; }
+  .name { font-size: 22px; font-weight: 800; letter-spacing: 2px; }
+  .desc { color: var(--muted); font-size: 13px; line-height: 1.8; min-height: 47px; }
+  .go { font-size: 13px; color: var(--accent); font-weight: 700; letter-spacing: 2px; }
+  footer { color: var(--muted); font-size: 12px; margin-top: auto; padding-top: 24px; }
+  a.back {
+    position: fixed; top: 14px; left: 14px; z-index: 10; text-decoration: none;
+    color: var(--muted); font-size: 13px; letter-spacing: 1px;
+    padding: 8px 14px; border-radius: 999px;
+    border: 1px solid var(--border); background: rgba(255,255,255,0.05);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    transition: color .15s ease, border-color .15s ease;
+  }
+  a.back:hover { color: var(--accent); border-color: rgba(56,240,208,0.5); }
+</style>
+</head>
+<body>
+  <a class="back" href="./index.html">← 返回首页</a>
+  <h1>🎮 小游戏合集</h1>
+  <div class="sub">拳皇风格 · 魂斗罗 · 像素世界 · 贪吃蛇 · 2048 · 消消乐 · 俄罗斯方块 · 数独 · 扫雷 · 五子棋 · 围棋 · 猪了个猪 · 合成大西瓜 · 水果忍者 · 愤怒的小鸟 —— 选择一个开始玩吧</div>
+  <div class="grid">
+    <a class="card wide" href="./kof.html">
+      <div class="icon c-kof">🥊</div>
+      <div class="name">拳皇风格 · 格斗之王 97</div>
+      <div class="desc">90 年代街机像素格斗 · 9 名原创斗士 · 3 对 3 组队 · 必杀/超必杀/连招 · 街机/人机/本地双人/训练 · 手机横屏触控</div>
+      <div class="go">进入街机 →</div>
+    </a>
+    <a class="card wide" href="./contra.html">
+      <div class="icon c-contra">🔫</div>
+      <div class="name">魂斗罗 · 丛林堡垒</div>
+      <div class="desc">经典第一大关复刻 · 丛林 → 河流 → 断桥 → 堡垒 → 核心 BOSS · 八方向射击 · 五种武器 · 单人/双人合作 · 手机触屏可玩</div>
+      <div class="go">开始战斗 →</div>
+    </a>
+    <a class="card wide" href="./terraria.html">
+      <div class="icon c-terra">⛏️</div>
+      <div class="name">像素世界 · 泰拉瑞亚式</div>
+      <div class="desc">横版开放世界沙盒 · 挖掘建造 · 合成装备 · NPC 入住 · 五大 Boss · 昼夜与生态 · 自动存档</div>
+      <div class="go">进入世界 →</div>
+    </a>
+    <a class="card" href="./snake.html">
+      <div class="icon c-snake">🐍</div>
+      <div class="name">贪吃蛇</div>
+      <div class="desc">吃苹果涨分，小心别撞墙咬到自己<br/>金色星星限时 +30</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+    <a class="card" href="./2048.html">
+      <div class="icon c-2048">🔢</div>
+      <div class="name">2048</div>
+      <div class="desc">滑动合并相同数字<br/>合成 2048 方块吧</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+    <a class="card" href="./xiaoxiaole.html">
+      <div class="icon c-xxl">🍬</div>
+      <div class="name">消消乐</div>
+      <div class="desc">交换相邻糖果，三消连击<br/>消除越多分越高</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+    <a class="card" href="./tetris.html">
+      <div class="icon c-tetris">🧱</div>
+      <div class="name">俄罗斯方块</div>
+      <div class="desc">消除整行得分，等级越高落得越快<br/>支持暂存与幽灵投影</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+    <a class="card" href="./sudoku.html">
+      <div class="icon c-sudoku">🧩</div>
+      <div class="name">数独</div>
+      <div class="desc">12×12 大棋盘 · 数字 1-12<br/>三档难度 · 笔记 · 计时</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+    <a class="card" href="./minesweeper.html">
+      <div class="icon c-mine">💣</div>
+      <div class="name">扫雷</div>
+      <div class="desc">经典三难度 · 插旗 · 计时<br/>数字提示周围地雷数</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+    <a class="card" href="./gomoku.html">
+      <div class="icon c-gomoku">⚫</div>
+      <div class="name">五子棋</div>
+      <div class="desc">五子连珠即胜<br/>双人对战 / 人机对战</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+    <a class="card" href="./go.html">
+      <div class="icon c-go">⚪</div>
+      <div class="name">围棋</div>
+      <div class="desc">19 路棋盘 · 提子打劫<br/>围地计分 · 双人/人机</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+
+
+    <a class="card" href="./bird.html">
+      <div class="icon c-bird">🐦</div>
+      <div class="name">愤怒的小鸟</div>
+      <div class="desc">拉弓发射小鸟摧毁猪堡<br/>15 关 · 难度递增 · 飞行点按技能</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+    <a class="card" href="./fruitninja.html">
+      <div class="icon c-fn">🍉</div>
+      <div class="name">水果忍者</div>
+      <div class="desc">手指划过切开水果<br/>连击加分 · 小心炸弹 💣</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+    <a class="card" href="./watermelon.html">
+      <div class="icon c-wm">🍉</div>
+      <div class="name">合成大西瓜</div>
+      <div class="desc">两个相同水果碰一起合更大<br/>小心堆过红线 · 手机瞄准松手落下</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+    <a class="card" href="./pig.html">
+      <div class="icon c-pig">🐷</div>
+      <div class="name">猪了个猪</div>
+      <div class="desc">堆叠消除 · 3 个相同即消<br/>多关卡 · 撤回/洗牌/移出</div>
+      <div class="go">开始游戏 →</div>
+    </a>
+  </div>
+  <footer>纯浏览器小游戏 · 手机/电脑均可直接游玩 · 💾 全部自动存档</footer>
+</body>
+</html>
