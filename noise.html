@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>助眠白噪音 · 离线合成</title>
+<style>
+:root{
+  --bg:#0a0d12; --panel:#12171f; --panel-2:#161d27; --line:#222b38;
+  --text:#dfe6f0; --muted:#8b97a8; --accent:#6ea8fe; --accent-soft:rgba(110,168,254,.16);
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased; -webkit-tap-highlight-color:transparent;
+  overflow-x:hidden;
+}
+body::before{
+  content:""; position:fixed; inset:0; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(58% 42% at 12% 0%, rgba(110,168,254,.10), transparent 68%),
+    radial-gradient(48% 38% at 92% 6%, rgba(120,255,214,.05), transparent 68%);
+}
+.wrap{position:relative; z-index:1; max-width:1000px; margin:0 auto; padding:26px 18px 210px}
+header.top{display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:20px}
+h1{font-size:21px; margin:0; font-weight:600; letter-spacing:.4px}
+.sub{margin:7px 0 0; font-size:12.5px; color:var(--muted); line-height:1.6}
+.badge{font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:5px 11px; background:rgba(255,255,255,.02); white-space:nowrap}
+
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px}
+.panel-head{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:13px}
+.panel h2{font-size:12.5px; margin:0; font-weight:600; color:#c7d2e2; letter-spacing:1px}
+.tiny{font-size:11.5px; color:var(--muted); margin:0; line-height:1.7}
+
+.presets{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+.preset{
+  appearance:none; font-family:inherit; display:flex; flex-direction:column; align-items:center; gap:7px;
+  border:1px solid var(--line); background:var(--panel-2); color:var(--text);
+  border-radius:14px; padding:14px 8px; font-size:13.5px; cursor:pointer;
+  transition:transform .18s, border-color .18s, background .18s, box-shadow .18s;
+}
+.preset svg{color:#93a4bb; transition:color .18s}
+.preset:hover{border-color:#31405a; transform:translateY(-1px)}
+.preset.active{border-color:rgba(110,168,254,.6); background:linear-gradient(180deg,rgba(110,168,254,.15),rgba(110,168,254,.04)); box-shadow:0 10px 26px -16px rgba(110,168,254,.95)}
+.preset.active svg{color:var(--accent)}
+
+.grid{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-top:16px}
+.card{
+  background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:14px 14px 8px;
+  display:flex; flex-direction:column; gap:8px;
+  transition:border-color .22s, background .22s, box-shadow .22s;
+}
+.card.on{border-color:rgba(110,168,254,.5); background:linear-gradient(180deg,rgba(110,168,254,.10),rgba(18,23,31,.92)); box-shadow:0 12px 30px -20px rgba(110,168,254,.95)}
+.card .head{display:flex; align-items:center; gap:10px}
+.card .ico{width:36px; height:36px; flex:0 0 auto; border-radius:11px; display:grid; place-items:center; background:rgba(255,255,255,.04); color:#93a4bb; transition:.22s}
+.card.on .ico{background:var(--accent-soft); color:var(--accent)}
+.card .nm{font-size:14px; font-weight:500; line-height:1.2}
+.card .val{font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; margin-top:3px}
+
+.switch{
+  margin-left:auto; flex:0 0 auto; width:46px; height:27px; padding:0; border-radius:999px;
+  background:#26303e; border:1px solid #2c3849; position:relative; cursor:pointer; transition:.22s;
+}
+.switch .knob{position:absolute; top:2px; left:2px; width:21px; height:21px; border-radius:50%; background:#8b97a8; transition:.24s cubic-bezier(.3,.8,.3,1)}
+.switch[aria-checked="true"]{background:rgba(110,168,254,.34); border-color:rgba(110,168,254,.62)}
+.switch[aria-checked="true"] .knob{left:23px; background:#eef4ff; box-shadow:0 0 10px rgba(110,168,254,.85)}
+.switch:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+input[type=range]{
+  -webkit-appearance:none; appearance:none; width:100%; height:20px; margin:0;
+  background:transparent; cursor:pointer;
+}
+input[type=range]::-webkit-slider-runnable-track{height:5px; border-radius:999px; background:linear-gradient(90deg,var(--accent) var(--fill,0%),#232c39 var(--fill,0%))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:15px; height:15px; margin-top:-5px; border-radius:50%; background:#e8f0ff; box-shadow:0 1px 6px rgba(0,0,0,.65)}
+input[type=range]::-moz-range-track{height:5px; border-radius:999px; background:#232c39}
+input[type=range]::-moz-range-progress{height:5px; border-radius:999px; background:var(--accent)}
+input[type=range]::-moz-range-thumb{width:15px; height:15px; border:0; border-radius:50%; background:#e8f0ff}
+input[type=range].off{opacity:.4}
+input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:3px}
+
+.breath-body{display:flex; align-items:center; gap:28px; flex-wrap:wrap}
+.breath-ring{
+  position:relative; width:186px; height:186px; flex:0 0 auto; border-radius:50%; display:grid; place-items:center;
+  background:conic-gradient(var(--accent) calc(var(--p,0) * 360deg), rgba(255,255,255,.05) 0deg);
+}
+.breath-ring::before{content:""; position:absolute; inset:6px; border-radius:50%; background:#0f141c}
+.breath-pulse{
+  position:absolute; inset:22px; border-radius:50%; transform:scale(.62); will-change:transform;
+  background:radial-gradient(circle at 50% 42%, rgba(110,168,254,.42), rgba(110,168,254,.10) 62%, rgba(110,168,254,0) 74%);
+  border:1px solid rgba(110,168,254,.32);
+}
+.breath-text{position:relative; display:flex; flex-direction:column; align-items:center}
+.breath-text .phase{font-size:16px; letter-spacing:3px; color:#dbe6f7}
+.breath-text .count{font-size:34px; font-weight:300; line-height:1.15; font-variant-numeric:tabular-nums}
+.breath-info{flex:1 1 220px; min-width:190px; display:flex; flex-direction:column; gap:9px}
+.breath-info .hint{margin:0; font-size:16.5px; letter-spacing:.4px}
+.breath-info .hint b{color:var(--accent); font-weight:600}
+
+.btn{font-family:inherit; font-size:13px; padding:9px 15px; border-radius:11px; border:1px solid var(--line); background:#1a2230; color:var(--text); cursor:pointer; transition:.18s; white-space:nowrap}
+.btn:hover{border-color:#38466a; background:#1f2a3b}
+.btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+.btn.primary{border:0; background:linear-gradient(180deg,#6ea8fe,#4b82e0); color:#06111f; font-weight:600; font-size:15px; padding:13px 34px; border-radius:13px; box-shadow:0 14px 34px -16px rgba(110,168,254,.95)}
+
+.dock{position:fixed; left:0; right:0; bottom:0; z-index:6; padding:12px 18px calc(12px + env(safe-area-inset-bottom));
+  background:rgba(10,13,18,.88); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); border-top:1px solid var(--line)}
+.dock-inner{max-width:1000px; margin:0 auto; display:flex; flex-direction:column; gap:11px}
+.dock-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+.dock-label{font-size:12px; color:var(--muted); flex:0 0 auto; letter-spacing:.5px}
+.dock-row input[type=range]{flex:1 1 160px; min-width:120px}
+.dock-val{font-size:12px; color:#c3cfdf; font-variant-numeric:tabular-nums; min-width:56px; text-align:right}
+.chips{display:flex; gap:6px; flex-wrap:wrap}
+.chip{font-family:inherit; font-size:12px; padding:6px 12px; border-radius:999px; border:1px solid var(--line); background:rgba(255,255,255,.03); color:var(--muted); cursor:pointer; transition:.18s}
+.chip:hover{color:#c3cfdf; border-color:#33415a}
+.chip.active{background:var(--accent-soft); border-color:rgba(110,168,254,.55); color:#dce9ff}
+
+.overlay{position:fixed; inset:0; z-index:20; display:grid; place-items:center; padding:24px;
+  background:radial-gradient(70% 60% at 50% 32%, #141b26, #07090d 78%); transition:opacity .55s ease}
+.overlay.hide{opacity:0; pointer-events:none}
+.overlay-card{max-width:430px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:14px}
+.overlay-card h2{margin:0; font-size:23px; font-weight:600; letter-spacing:1px}
+.overlay-card p{margin:0; font-size:13px; color:var(--muted); line-height:1.8}
+.logo{width:66px; height:66px; border-radius:20px; display:grid; place-items:center; color:var(--accent); background:var(--accent-soft); border:1px solid rgba(110,168,254,.28)}
+
+.toast{position:fixed; left:50%; bottom:196px; z-index:30; transform:translate(-50%,10px); opacity:0; pointer-events:none;
+  background:rgba(30,40,56,.97); border:1px solid #33415a; color:#dce6f5; padding:10px 18px; border-radius:12px;
+  font-size:13px; transition:opacity .3s, transform .3s; white-space:nowrap}
+.toast.show{opacity:1; transform:translate(-50%,0)}
+
+@media (max-width:880px){ .grid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:520px){
+  .presets{grid-template-columns:repeat(2,1fr)}
+  .wrap{padding:20px 14px 235px}
+  .breath-ring{width:152px; height:152px}
+  .breath-pulse{inset:18px}
+}
+@media (prefers-reduced-motion:reduce){ .preset:hover{transform:none} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>助眠白噪音</h1>
+      <p class="sub">全部声音由 Web Audio 代码实时合成，无音频文件 · 断网可用</p>
+    </div>
+    <span class="badge" id="engineBadge">引擎待启动</span>
+  </header>
+
+  <section class="panel">
+    <div class="panel-head"><h2>预设场景</h2><span class="tiny">一键切换</span></div>
+    <div class="presets" id="presets"></div>
+  </section>
+
+  <section class="grid" id="grid"></section>
+
+  <section class="panel" style="margin-top:16px">
+    <div class="panel-head">
+      <h2>4-7-8 呼吸引导</h2>
+      <button class="btn" id="breathToggle" aria-pressed="false">开始</button>
+    </div>
+    <div class="breath-body">
+      <div class="breath-ring" id="breathRing" style="--p:0">
+        <div class="breath-pulse" id="breathPulse"></div>
+        <div class="breath-text">
+          <span class="phase" id="breathPhase">准备</span>
+          <span class="count" id="breathCount">&nbsp;</span>
+        </div>
+      </div>
+      <div class="breath-info">
+        <p class="hint" id="breathHint"><b>吸气 4 秒</b> · <b>屏息 7 秒</b> · <b>呼气 8 秒</b></p>
+        <p class="tiny">鼻吸、口呼，跟着圆环缩放即可。若感到不适请立即停止。</p>
+        <p class="tiny" id="breathCycles">已完成 0 轮</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="dock">
+  <div class="dock-inner">
+    <div class="dock-row">
+      <span class="dock-label">总音量</span>
+      <input type="range" id="master" min="0" max="100" step="1" value="70" aria-label="总音量">
+      <span class="dock-val" id="masterVal">70%</span>
+      <button class="btn" id="stopAll">全部停止</button>
+    </div>
+    <div class="dock-row">
+      <span class="dock-label">定时关闭</span>
+      <div class="chips" id="timerChips"></div>
+      <span class="dock-val" id="timerLeft"></span>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="overlay" id="overlay">
+  <div class="overlay-card">
+    <div class="logo">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12h2.5l2-6 3 13 3-10 2.2 5.5H21"/>
+      </svg>
+    </div>
+    <h2>助眠白噪音</h2>
+    <p>雨声 · 雷声 · 海浪 · 风声 · 篝火 · 鸟叫 · 风扇 · 白噪音<br>自由叠加混音，配合场景预设、呼吸引导与定时关闭。</p>
+    <button class="btn primary" id="startBtn">开始播放</button>
+    <p class="tiny">首次点击用于启用浏览器音频权限</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     1. 定义：音源 / 预设 / 定时 / 呼吸
+     ============================================================ */
+  var SOURCES = [
+    { id: 'rain',    name: '雨声',   icon: 'rain'    },
+    { id: 'thunder', name: '雷声',   icon: 'thunder' },
+    { id: 'waves',   name: '海浪',   icon: 'waves'   },
+    { id: 'wind',    name: '风声',   icon: 'wind'    },
+    { id: 'fire',    name: '篝火',   icon: 'fire'    },
+    { id: 'birds',   name: '鸟叫',   icon: 'birds'   },
+    { id: 'fan',     name: '风扇',   icon: 'fan'     },
+    { id: 'white',   name: '白噪音', icon: 'white'   }
+  ];
+
+  var ICONS = {
+    rain:    '<g transform="translate(0,-2.6)"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></g><path d="M8.2 19.2 7.4 21.8M12.2 19.2 11.4 21.8M16.2 19.2 15.4 21.8"/>',
+    thunder: '<path d="M13 2 4.6 13.2H10l-1 8.8 8.4-11.2H12l1-8.8Z"/>',
+    waves:   '<path d="M2 7c.6.5 1.2 1 2.5 1C7 8 7 6 9.5 6c2.6 0 2.4 2 5 2 1.3 0 1.9-.5 2.5-1"/><path d="M2 12.5c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 1.3 0 1.9-.5 2.5-1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 1.3 0 1.9-.5 2.5-1"/>',
+    wind:    '<path d="M12.8 19.6A2 2 0 1 0 14 16H2"/><path d="M17.5 8a2.5 2.5 0 1 1 2 4H2"/><path d="M9.8 4.4A2 2 0 1 1 11 8H2"/>',
+    fire:    '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5Z"/>',
+    birds:   '<path d="M16 7h.01"/><path d="M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20"/><path d="m20 7 2 .5-2 .5"/><path d="M10 18v3"/><path d="M14 17.75V21"/><path d="M7 18a6 6 0 0 0 3.84-10.61"/>',
+    fan:     '<circle cx="12" cy="12" r="2.2"/><path d="M12 10.2c0-2.6.4-5.4 2.2-6.8 1.7-1.3 3.9.1 3.9 2.2 0 2.3-3.2 3.7-6.1 4.6Z"/><path d="M12 10.2c0-2.6.4-5.4 2.2-6.8 1.7-1.3 3.9.1 3.9 2.2 0 2.3-3.2 3.7-6.1 4.6Z" transform="rotate(120 12 12)"/><path d="M12 10.2c0-2.6.4-5.4 2.2-6.8 1.7-1.3 3.9.1 3.9 2.2 0 2.3-3.2 3.7-6.1 4.6Z" transform="rotate(240 12 12)"/>',
+    white:   '<path d="M3 12h2.5l2-6 3 13 3-10 2.2 5.5H21"/>'
+  };
+
+  function svgIcon(name, size) {
+    size = size || 20;
+    return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+           'stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' + ICONS[name] + '</svg>';
+  }
+
+  var PRESETS = [
+    { id: 'rainynight', name: '雨夜',     icon: 'rain',  levels: { rain: 56, thunder: 32, wind: 16 } },
+    { id: 'seaside',    name: '海边',     icon: 'waves', levels: { waves: 64, wind: 30 } },
+    { id: 'forest',     name: '森林鸟鸣', icon: 'birds', levels: { birds: 52, wind: 22, rain: 16 } },
+    { id: 'cabin',      name: '篝火小屋', icon: 'fire',  levels: { fire: 58, wind: 20, rain: 14 } }
+  ];
+
+  var TIMER_OPTIONS = [
+    { min: 0,  label: '不限时' },
+    { min: 5,  label: '5 分' },
+    { min: 15, label: '15 分' },
+    { min: 30, label: '30 分' },
+    { min: 60, label: '60 分' },
+    { min: 90, label: '90 分' }
+  ];
+
+  var PHASES = [
+    { name: '吸气', dur: 4, hint: '用鼻子缓缓吸气' },
+    { name: '屏息', dur: 7, hint: '屏住呼吸，放松肩膀' },
+    { name: '呼气', dur: 8, hint: '用嘴缓慢呼气' }
+  ];
+  var CYCLE = 19;
+
+  var STORE_KEY = 'asmr-noise-state-v1';
+  var DEFAULTS = {
+    master: 75,
+    on:  { rain: true },
+    vol: { rain: 48, thunder: 34, waves: 52, wind: 44, fire: 46, birds: 42, fan: 40, white: 36 }
+  };
+
+  /* ============================================================
+     2. 状态
+     ============================================================ */
+  function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+  function rand(a, b) { return a + Math.random() * (b - a); }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function curve01(x) { return Math.pow(clamp(x, 0, 1), 1.5); }
+  var MASTER_TRIM = 1.7;   /* 输出补偿增益，峰值由限幅器兜底 */
+
+  var state = loadState();
+  var ctx = null, master = null, limiter = null, shaper = null;
+  var noiseBufs = {};
+  var layers = {};
+  var timer = { min: 0, endAt: 0, handle: null };
+  var breath = { on: false, start: 0, raf: 0, shownPhase: -1, shownCount: -1, shownCycle: -1 };
+  var saveHandle = null;
+
+  function loadState() {
+    var s = { master: DEFAULTS.master, on: {}, vol: {} };
+    SOURCES.forEach(function (src) {
+      s.on[src.id] = !!DEFAULTS.on[src.id];
+      s.vol[src.id] = DEFAULTS.vol[src.id];
+    });
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (raw) {
+        var saved = JSON.parse(raw);
+        if (saved && typeof saved === 'object') {
+          if (typeof saved.master === 'number') s.master = clamp(saved.master, 0, 100);
+          SOURCES.forEach(function (src) {
+            if (saved.on && typeof saved.on[src.id] === 'boolean') s.on[src.id] = saved.on[src.id];
+            if (saved.vol && typeof saved.vol[src.id] === 'number') s.vol[src.id] = clamp(saved.vol[src.id], 0, 100);
+          });
+        }
+      }
+    } catch (e) { /* file:// 或隐私模式下忽略 */ }
+    return s;
+  }
+
+  function saveState() {
+    if (saveHandle) clearTimeout(saveHandle);
+    saveHandle = setTimeout(function () {
+      try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+    }, 250);
+  }
+
+  function now() { return ctx.currentTime; }
+
+  /* 软限幅曲线：0.7 以下完全线性，之上平滑压到 1.0，杜绝削波失真 */
+  function softClipCurve() {
+    var n = 4096, a = 0.7;
+    var c = new Float32Array(n);
+    for (var i = 0; i < n; i++) {
+      var x = (i / (n - 1)) * 2 - 1;
+      var ax = Math.abs(x);
+      c[i] = ax <= a ? x : (x < 0 ? -1 : 1) * (a + (1 - a) * Math.tanh((ax - a) / (1 - a)));
+    }
+    return c;
+  }
+
+  /* ============================================================
+     3. Web Audio 引擎
+     ============================================================ */
+  function bq(type, freq, q) {
+    var f = ctx.createBiquadFilter();
+    f.type = type; f.frequency.value = freq;
+    if (q != null) f.Q.value = q;
+    return f;
+  }
+  function gnode(v) { var g = ctx.createGain(); g.gain.value = v; return g; }
+  function osc(type, freq) { var o = ctx.createOscillator(); o.type = type; o.frequency.value = freq; return o; }
+
+  function rampGain(param, target, time) {
+    var t = now();
+    if (param.cancelAndHoldAtTime) param.cancelAndHoldAtTime(t);
+    else { param.cancelScheduledValues(t); param.setValueAtTime(param.value, t); }
+    param.linearRampToValueAtTime(target, t + Math.max(0.01, time));
+  }
+
+  /* 噪声缓冲：白 / 粉 / 棕，首尾交叉淡化以实现无缝循环 */
+  function createNoiseBuffer(type) {
+    var sr = ctx.sampleRate;
+    var len = Math.floor(sr * 6);
+    var data = new Float32Array(len);
+    var i, w;
+    if (type === 'white') {
+      for (i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    } else if (type === 'pink') {
+      var b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (i = 0; i < len; i++) {
+        w = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + w * 0.0555179;
+        b1 = 0.99332 * b1 + w * 0.0750759;
+        b2 = 0.96900 * b2 + w * 0.1538520;
+        b3 = 0.86650 * b3 + w * 0.3104856;
+        b4 = 0.55000 * b4 + w * 0.5329522;
+        b5 = -0.7616 * b5 - w * 0.0168980;
+        data[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362) * 0.11;
+        b6 = w * 0.115926;
+      }
+    } else {
+      var last = 0;
+      for (i = 0; i < len; i++) {
+        w = Math.random() * 2 - 1;
+        last = (last + 0.02 * w) / 1.02;
+        data[i] = last * 3.5;
+      }
+    }
+    var peak = 0;
+    for (i = 0; i < len; i++) { var a = data[i] < 0 ? -data[i] : data[i]; if (a > peak) peak = a; }
+    var norm = peak > 0 ? 0.92 / peak : 1;
+    for (i = 0; i < len; i++) data[i] *= norm;
+    var xf = Math.floor(sr * 0.15);
+    for (i = 0; i < xf; i++) {
+      var k = i / xf;
+      data[len - xf + i] = data[len - xf + i] * k + data[i] * (1 - k);
+    }
+    var buf = ctx.createBuffer(1, len, sr);
+    buf.getChannelData(0).set(data);
+    return buf;
+  }
+
+  function noiseSrc(L, type, rate) {
+    var s = ctx.createBufferSource();
+    s.buffer = noiseBufs[type];
+    s.loop = true;
+    s.playbackRate.value = rate || 1;
+    return s;
+  }
+  function startLoop(L, src) { src.start(0, Math.random() * src.buffer.duration); L.loops.push(src); return src; }
+  function startOsc(L, o) { o.start(); L.loops.push(o); return o; }
+  function trackOneShot(L, src, others) {
+    L.active.add(src);
+    src.onended = function () {
+      L.active.delete(src);
+      try { src.disconnect(); } catch (e) {}
+      if (others) others.forEach(function (n) { try { n.disconnect(); } catch (e) {} });
+    };
+  }
+
+  /* 随机事件调度：多排程一些时间，避免后台标签页定时器节流造成断音 */
+  function schedule(L, intervalFn, fireFn, lookahead) {
+    var stopped = false;
+    var next = now() + rand(0.2, 1.2);
+    function fill() {
+      if (stopped || !ctx) return;
+      var t = now();
+      if (next < t) next = t + 0.05;
+      var horizon = t + (lookahead || 15);
+      var guard = 0;
+      while (next < horizon && guard++ < 1500) {
+        var when = next;
+        try { fireFn(when); } catch (e) {}
+        next = when + intervalFn();
+      }
+    }
+    fill();
+    L.timers.push(setInterval(fill, 4000));
+    L.cleanups.push(function () { stopped = true; });
+  }
+
+  /* ---------- 雨声 ---------- */
+  function buildRain(L) {
+    var body = noiseSrc(L, 'pink');
+    var lp = bq('lowpass', 4200, 0.8);
+    var g1 = gnode(0.5);
+    body.connect(lp); lp.connect(g1); g1.connect(L.out);
+    startLoop(L, body);
+
+    var hiss = noiseSrc(L, 'white');
+    var hp = bq('highpass', 1100, 0.7);
+    var g2 = gnode(0.24);
+    hiss.connect(hp); hp.connect(g2); g2.connect(L.out);
+    startLoop(L, hiss);
+
+    var lfo1 = osc('sine', 0.11), l1 = gnode(0.07);
+    lfo1.connect(l1); l1.connect(g2.gain); startOsc(L, lfo1);
+    var lfo2 = osc('sine', 0.05), l2 = gnode(650);
+    lfo2.connect(l2); l2.connect(lp.frequency); startOsc(L, lfo2);
+
+    schedule(L, function () { return rand(0.06, 0.5); }, function (t) {
+      var dur = rand(0.02, 0.06);
+      var s = noiseSrc(L, 'white');
+      var f = bq('bandpass', rand(1600, 5200), rand(2, 6));
+      var g = gnode(0);
+      s.connect(f); f.connect(g); g.connect(L.out);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(rand(0.02, 0.09), t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.start(t, Math.random() * noiseBufs.white.duration);
+      s.stop(t + dur + 0.02);
+      trackOneShot(L, s, [f, g]);
+    }, 14);
+  }
+
+  /* ---------- 雷声 ---------- */
+  function buildThunder(L) {
+    var bed = noiseSrc(L, 'brown');
+    var hp = bq('highpass', 22, 0.7);
+    var lp = bq('lowpass', 260, 1.1);
+    var g = gnode(0.42);
+    bed.connect(hp); hp.connect(lp); lp.connect(g); g.connect(L.out);
+    startLoop(L, bed);
+    var lfo = osc('sine', 0.043), lg = gnode(0.16);
+    lfo.connect(lg); lg.connect(g.gain); startOsc(L, lfo);
+
+    schedule(L, function () { return rand(10, 34); }, function (t) { thunderClap(L, t); }, 75);
+  }
+
+  function thunderClap(L, t) {
+    var dist = Math.pow(Math.random(), 1.5);
+    var dur = rand(2.0, 6.5) * (0.6 + dist);
+    var attack = lerp(0.03, 0.9, dist);
+    var peak = 0.85 * lerp(1, 0.45, dist);
+    var s = noiseSrc(L, 'brown');
+    var lp = bq('lowpass', 600, 1.0);
+    var g = gnode(0);
+    s.connect(lp); lp.connect(g); g.connect(L.out);
+    lp.frequency.setValueAtTime(lerp(900, 320, dist), t);
+    lp.frequency.exponentialRampToValueAtTime(lerp(170, 80, dist), t + attack + dur * 0.7);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + attack + dur);
+    s.start(t, Math.random() * noiseBufs.brown.duration);
+    s.stop(t + attack + dur + 0.2);
+    trackOneShot(L, s, [lp, g]);
+
+    if (dist < 0.42) {
+      var cs = noiseSrc(L, 'white');
+      var cf = bq('bandpass', rand(1500, 2600), 1.1);
+      var cg = gnode(0);
+      cs.connect(cf); cf.connect(cg); cg.connect(L.out);
+      var ct = t + rand(0, 0.12);
+      cg.gain.setValueAtTime(0.0001, ct);
+      cg.gain.exponentialRampToValueAtTime(rand(0.14, 0.32), ct + 0.006);
+      cg.gain.exponentialRampToValueAtTime(0.0001, ct + rand(0.2, 0.5));
+      cs.start(ct, Math.random() * noiseBufs.white.duration);
+      cs.stop(ct + 0.75);
+      trackOneShot(L, cs, [cf, cg]);
+    }
+  }
+
+  /* ---------- 海浪 ---------- */
+  function buildWaves(L) {
+    var cfgs = [
+      { rate: 0.052, base: 0.30, depth: 0.26, cut: 700,  dc: 420, type: 'brown' },
+      { rate: 0.081, base: 0.24, depth: 0.20, cut: 1200, dc: 600, type: 'brown' },
+      { rate: 0.031, base: 0.14, depth: 0.12, cut: 2400, dc: 900, type: 'pink'  }
+    ];
+    cfgs.forEach(function (c) {
+      var s = noiseSrc(L, c.type);
+      var lp = bq('lowpass', c.cut, 0.9);
+      var g = gnode(c.base);
+      s.connect(lp); lp.connect(g); g.connect(L.out);
+      startLoop(L, s);
+      var lfo = osc('sine', c.rate);
+      var d1 = gnode(c.depth); lfo.connect(d1); d1.connect(g.gain);
+      var d2 = gnode(c.dc); lfo.connect(d2); d2.connect(lp.frequency);
+      startOsc(L, lfo);
+    });
+    var foam = noiseSrc(L, 'white');
+    var hp = bq('highpass', 2600, 0.7);
+    var fg = gnode(0.028);
+    foam.connect(hp); hp.connect(fg); fg.connect(L.out);
+    startLoop(L, foam);
+    var flfo = osc('sine', 0.052), fgl = gnode(0.032);
+    flfo.connect(fgl); fgl.connect(fg.gain); startOsc(L, flfo);
+  }
+
+  /* ---------- 风声 ---------- */
+  function buildWind(L) {
+    var s = noiseSrc(L, 'pink');
+    var hp = bq('highpass', 60, 0.7);
+    var lp = bq('lowpass', 480, 3.2);
+    var g = gnode(0.34);
+    s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(L.out);
+    startLoop(L, s);
+    var gust1 = osc('sine', 0.047);
+    var g1 = gnode(230); gust1.connect(g1); g1.connect(lp.frequency);
+    var gv = gnode(0.16); gust1.connect(gv); gv.connect(g.gain);
+    startOsc(L, gust1);
+    var gust2 = osc('sine', 0.019);
+    var g2 = gnode(120); gust2.connect(g2); g2.connect(lp.frequency);
+    startOsc(L, gust2);
+
+    var w = noiseSrc(L, 'white');
+    var bp = bq('bandpass', 900, 5.5);
+    var wg = gnode(0.035);
+    w.connect(bp); bp.connect(wg); wg.connect(L.out);
+    startLoop(L, w);
+    var gl = osc('sine', 0.033);
+    var g3 = gnode(450); gl.connect(g3); g3.connect(bp.frequency);
+    var g4 = gnode(0.03); gl.connect(g4); g4.connect(wg.gain);
+    startOsc(L, gl);
+  }
+
+  /* ---------- 篝火 ---------- */
+  function buildFire(L) {
+    var s = noiseSrc(L, 'brown');
+    var lp = bq('lowpass', 330, 0.9);
+    var g = gnode(0.40);
+    s.connect(lp); lp.connect(g); g.connect(L.out);
+    startLoop(L, s);
+
+    var w = noiseSrc(L, 'white');
+    var bp = bq('bandpass', 900, 0.8);
+    var wg = gnode(0.05);
+    w.connect(bp); bp.connect(wg); wg.connect(L.out);
+    startLoop(L, w);
+
+    var flick = osc('sine', 0.9), fg = gnode(0.07);
+    flick.connect(fg); fg.connect(g.gain); startOsc(L, flick);
+
+    schedule(L, function () {
+      return Math.random() < 0.5 ? rand(0.03, 0.12) : rand(0.12, 0.45);
+    }, function (t) { crackle(L, t); }, 12);
+
+    schedule(L, function () { return rand(9, 26); }, function (t) {
+      var s2 = noiseSrc(L, 'white');
+      var f = bq('lowpass', rand(600, 1100), 1.4);
+      var g2 = gnode(0);
+      s2.connect(f); f.connect(g2); g2.connect(L.out);
+      var dur = rand(0.5, 1.4);
+      g2.gain.setValueAtTime(0.0001, t);
+      g2.gain.exponentialRampToValueAtTime(rand(0.05, 0.13), t + dur * 0.4);
+      g2.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s2.start(t, Math.random() * noiseBufs.white.duration);
+      s2.stop(t + dur + 0.1);
+      trackOneShot(L, s2, [f, g2]);
+    }, 40);
+  }
+
+  function crackle(L, t) {
+    var dur = rand(0.008, 0.05);
+    var s = noiseSrc(L, 'white');
+    var f = bq('bandpass', rand(1300, 5600), rand(1.2, 5));
+    var g = gnode(0);
+    s.connect(f); f.connect(g); g.connect(L.out);
+    var amp = 0.02 + Math.pow(Math.random(), 2.5) * 0.42;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(amp, t + 0.0015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.start(t, Math.random() * noiseBufs.white.duration);
+    s.stop(t + dur + 0.02);
+    trackOneShot(L, s, [f, g]);
+  }
+
+  /* ---------- 鸟叫 ---------- */
+  function buildBirds(L) {
+    var air = noiseSrc(L, 'pink');
+    var lp = bq('lowpass', 1300, 0.7);
+    var g = gnode(0.05);
+    air.connect(lp); lp.connect(g); g.connect(L.out);
+    startLoop(L, air);
+    var lfo = osc('sine', 0.06), lg = gnode(0.02);
+    lfo.connect(lg); lg.connect(g.gain); startOsc(L, lfo);
+
+    schedule(L, function () { return rand(2.2, 9); }, function (t) { chirpPhrase(L, t); }, 45);
+  }
+
+  function chirpPhrase(L, t) {
+    var notes = 1 + Math.floor(Math.random() * 5);
+    var base = rand(1800, 4200);
+    var tt = t;
+    for (var i = 0; i < notes; i++) {
+      var dur = rand(0.05, 0.15);
+      var o = ctx.createOscillator(); o.type = 'sine';
+      var mod = ctx.createOscillator(); mod.type = 'sine'; mod.frequency.value = rand(25, 55);
+      var mg = gnode(rand(50, 220));
+      mod.connect(mg); mg.connect(o.frequency);
+      var g = gnode(0);
+      o.connect(g); g.connect(L.out);
+      var f0 = base * rand(0.85, 1.25);
+      var f1 = Math.max(300, f0 * rand(0.5, 1.7));
+      o.frequency.setValueAtTime(f0, tt);
+      o.frequency.exponentialRampToValueAtTime(f1, tt + dur);
+      g.gain.setValueAtTime(0.0001, tt);
+      g.gain.exponentialRampToValueAtTime(rand(0.08, 0.2), tt + dur * 0.25);
+      g.gain.exponentialRampToValueAtTime(0.0001, tt + dur);
+      o.start(tt); o.stop(tt + dur + 0.02);
+      mod.start(tt); mod.stop(tt + dur + 0.02);
+      trackOneShot(L, o, [mod, mg, g]);
+      tt += dur + rand(0.02, 0.16);
+    }
+  }
+
+  /* ---------- 风扇 ---------- */
+  function buildFan(L) {
+    var s = noiseSrc(L, 'brown');
+    var lp = bq('lowpass', 950, 0.8);
+    var g = gnode(0.42);
+    s.connect(lp); lp.connect(g); g.connect(L.out);
+    startLoop(L, s);
+
+    var h1 = osc('sine', 58), hg1 = gnode(0.02);
+    h1.connect(hg1); hg1.connect(L.out); startOsc(L, h1);
+    var h2 = osc('triangle', 116), hg2 = gnode(0.006);
+    h2.connect(hg2); hg2.connect(L.out); startOsc(L, h2);
+
+    var th = osc('sine', 11.5), tg = gnode(0.05);
+    th.connect(tg); tg.connect(g.gain); startOsc(L, th);
+
+    var a = noiseSrc(L, 'white');
+    var bp = bq('bandpass', 2000, 0.6);
+    var ag = gnode(0.05);
+    a.connect(bp); bp.connect(ag); ag.connect(L.out);
+    startLoop(L, a);
+    var lfo = osc('sine', 0.23), lg = gnode(0.02);
+    lfo.connect(lg); lg.connect(ag.gain); startOsc(L, lfo);
+  }
+
+  /* ---------- 基础白噪音 ---------- */
+  function buildWhite(L) {
+    var s = noiseSrc(L, 'white');
+    var hp = bq('highpass', 30, 0.7);
+    var lp = bq('lowpass', 15000, 0.7);
+    var g = gnode(0.5);
+    s.connect(hp); hp.connect(lp); lp.connect(g); g.connect(L.out);
+    startLoop(L, s);
+  }
+
+  var BUILDERS = {
+    rain: buildRain, thunder: buildThunder, waves: buildWaves, wind: buildWind,
+    fire: buildFire, birds: buildBirds, fan: buildFan, white: buildWhite
+  };
+
+  /* ---------- 图层生命周期 ---------- */
+  function initAudio() {
+    if (ctx) return;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try { ctx = new AC({ latencyHint: 'playback' }); } catch (e) { ctx = new AC(); }
+    limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -6;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.3;
+    shaper = ctx.createWaveShaper();
+    shaper.curve = softClipCurve();
+    shaper.oversample = 'none';
+    master = ctx.createGain();
+    master.gain.value = 0;
+    master.connect(limiter);
+    limiter.connect(shaper);
+    shaper.connect(ctx.destination);
+    noiseBufs.white = createNoiseBuffer('white');
+    noiseBufs.pink = createNoiseBuffer('pink');
+    noiseBufs.brown = createNoiseBuffer('brown');
+    rampGain(master.gain, curve01(state.master / 100) * MASTER_TRIM, 1.0);
+  }
+
+  function resumeAudio() {
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+  }
+
+  function startLayer(id) {
+    if (!ctx) return;
+    if (layers[id]) { applyLevel(id); return; }
+    var L = { id: id, out: ctx.createGain(), loops: [], active: new Set(), timers: [], cleanups: [] };
+    L.out.gain.value = 0;
+    L.out.connect(master);
+    layers[id] = L;
+    try { BUILDERS[id](L); } catch (e) { if (window.console) console.warn('audio build failed:', id, e); }
+    applyLevel(id, 1.0);
+  }
+
+  function stopLayer(id, fade) {
+    var L = layers[id];
+    if (!L) return;
+    layers[id] = null;
+    fade = fade == null ? 0.5 : fade;
+    rampGain(L.out.gain, 0, fade);
+    L.cleanups.forEach(function (f) { try { f(); } catch (e) {} });
+    L.timers.forEach(function (h) { clearInterval(h); clearTimeout(h); });
+    setTimeout(function () {
+      L.loops.forEach(function (n) { try { n.stop(); } catch (e) {} });
+      L.active.forEach(function (n) { try { n.stop(); } catch (e) {} });
+      L.loops.forEach(function (n) { try { n.disconnect(); } catch (e) {} });
+      try { L.out.disconnect(); } catch (e) {}
+    }, fade * 1000 + 300);
+  }
+
+  function applyLevel(id, fade) {
+    var L = layers[id];
+    if (!L || !ctx) return;
+    var target = state.on[id] ? curve01(state.vol[id] / 100) : 0;
+    rampGain(L.out.gain, target, fade == null ? 0.08 : fade);
+  }
+
+  function setSourceOn(id, on, fade) {
+    state.on[id] = !!on;
+    if (on) startLayer(id); else stopLayer(id, fade);
+    updateCard(id);
+    saveState();
+  }
+
+  function setMaster(v) {
+    state.master = clamp(v, 0, 100);
+    if (ctx) rampGain(master.gain, curve01(state.master / 100) * MASTER_TRIM, 0.1);
+    var el = document.getElementById('master');
+    el.value = state.master;
+    el.style.setProperty('--fill', state.master + '%');
+    document.getElementById('masterVal').textContent = Math.round(state.master) + '%';
+  }
+
+  function stopAllSounds(fade) {
+    SOURCES.forEach(function (src) {
+      if (state.on[src.id]) {
+        state.on[src.id] = false;
+        stopLayer(src.id, fade == null ? 1.2 : fade);
+        updateCard(src.id);
+      }
+    });
+    clearPresetHighlight();
+    saveState();
+  }
+
+  /* ============================================================
+     4. 界面
+     ============================================================ */
+  function updateCard(id) {
+    var card = document.getElementById('card-' + id);
+    if (!card) return;
+    var on = !!state.on[id];
+    card.classList.toggle('on', on);
+    card.querySelector('.switch').setAttribute('aria-checked', on ? 'true' : 'false');
+    var sl = card.querySelector('input[type=range]');
+    sl.value = state.vol[id];
+    sl.style.setProperty('--fill', state.vol[id] + '%');
+    sl.classList.toggle('off', !on);
+    card.querySelector('.val').textContent = Math.round(state.vol[id]) + '%';
+  }
+
+  function buildUI() {
+    var grid = document.getElementById('grid');
+    grid.innerHTML = SOURCES.map(function (s) {
+      return '' +
+        '<div class="card" id="card-' + s.id + '">' +
+          '<div class="head">' +
+            '<div class="ico">' + svgIcon(s.icon) + '</div>' +
+            '<div><div class="nm">' + s.name + '</div><div class="val">0%</div></div>' +
+            '<button class="switch" role="switch" aria-checked="false" aria-label="' + s.name + '开关" data-toggle="' + s.id + '"><span class="knob"></span></button>' +
+          '</div>' +
+          '<input type="range" min="0" max="100" step="1" value="' + state.vol[s.id] + '" aria-label="' + s.name + '音量" data-vol="' + s.id + '">' +
+        '</div>';
+    }).join('');
+    SOURCES.forEach(function (s) { updateCard(s.id); });
+
+    grid.addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('[data-toggle]') : null;
+      if (!btn) return;
+      resumeAudio();
+      var id = btn.getAttribute('data-toggle');
+      setSourceOn(id, !state.on[id], 0.6);
+      clearPresetHighlight();
+    });
+
+    grid.addEventListener('input', function (e) {
+      var sl = e.target.closest ? e.target.closest('[data-vol]') : null;
+      if (!sl) return;
+      var id = sl.getAttribute('data-vol');
+      state.vol[id] = clamp(parseFloat(sl.value) || 0, 0, 100);
+      sl.style.setProperty('--fill', state.vol[id] + '%');
+      document.getElementById('card-' + id).querySelector('.val').textContent = Math.round(state.vol[id]) + '%';
+      if (state.on[id]) applyLevel(id, 0.06);
+      saveState();
+    });
+
+    var presets = document.getElementById('presets');
+    presets.innerHTML = PRESETS.map(function (p) {
+      return '<button class="preset" data-preset="' + p.id + '">' + svgIcon(p.icon, 22) + '<span>' + p.name + '</span></button>';
+    }).join('');
+    presets.addEventListener('click', function (e) {
+      var b = e.target.closest ? e.target.closest('[data-preset]') : null;
+      if (!b) return;
+      resumeAudio();
+      applyPreset(b.getAttribute('data-preset'));
+    });
+
+    var chips = document.getElementById('timerChips');
+    chips.innerHTML = TIMER_OPTIONS.map(function (o) {
+      return '<button class="chip" data-min="' + o.min + '">' + o.label + '</button>';
+    }).join('');
+    chips.addEventListener('click', function (e) {
+      var c = e.target.closest ? e.target.closest('[data-min]') : null;
+      if (!c) return;
+      setTimer(parseInt(c.getAttribute('data-min'), 10));
+    });
+
+    document.getElementById('master').addEventListener('input', function (e) {
+      setMaster(parseFloat(e.target.value));
+      saveState();
+    });
+    document.getElementById('stopAll').addEventListener('click', function () {
+      stopAllSounds(0.8);
+      toast('已停止全部声音');
+    });
+    document.getElementById('breathToggle').addEventListener('click', toggleBreath);
+    document.getElementById('startBtn').addEventListener('click', function () {
+      initAudio();
+      resumeAudio();
+      document.getElementById('overlay').classList.add('hide');
+      document.getElementById('engineBadge').textContent = '实时合成 · 离线可用';
+      SOURCES.forEach(function (s) { if (state.on[s.id]) startLayer(s.id); });
+      setMaster(state.master);
+    });
+  }
+
+  function applyPreset(pid) {
+    var p = null;
+    PRESETS.forEach(function (x) { if (x.id === pid) p = x; });
+    if (!p) return;
+    SOURCES.forEach(function (s) {
+      var v = p.levels[s.id] || 0;
+      if (v > 0) {
+        state.vol[s.id] = v;
+        state.on[s.id] = true;
+        startLayer(s.id);
+        updateCard(s.id);
+      } else if (state.on[s.id]) {
+        state.on[s.id] = false;
+        stopLayer(s.id, 1.0);
+        updateCard(s.id);
+      }
+    });
+    document.querySelectorAll('.preset').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-preset') === pid);
+    });
+    saveState();
+    toast('已切换到「' + p.name + '」');
+  }
+
+  function clearPresetHighlight() {
+    document.querySelectorAll('.preset').forEach(function (b) { b.classList.remove('active'); });
+  }
+
+  var toastHandle = null;
+  function toast(msg) {
+    var el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    if (toastHandle) clearTimeout(toastHandle);
+    toastHandle = setTimeout(function () { el.classList.remove('show'); }, 2200);
+  }
+
+  /* ============================================================
+     5. 定时关闭
+     ============================================================ */
+  function setTimer(min) {
+    timer.min = min;
+    if (timer.handle) { clearInterval(timer.handle); timer.handle = null; }
+    document.querySelectorAll('#timerChips .chip').forEach(function (c) {
+      c.classList.toggle('active', parseInt(c.getAttribute('data-min'), 10) === min);
+    });
+    if (!min) {
+      timer.endAt = 0;
+      document.getElementById('timerLeft').textContent = '';
+      return;
+    }
+    timer.endAt = Date.now() + min * 60000;
+    tickTimer();
+    timer.handle = setInterval(tickTimer, 500);
+    toast('将在 ' + min + ' 分钟后自动停止');
+  }
+
+  function tickTimer() {
+    if (!timer.endAt) return;
+    var left = timer.endAt - Date.now();
+    if (left <= 0) {
+      if (timer.handle) { clearInterval(timer.handle); timer.handle = null; }
+      timer.endAt = 0;
+      document.getElementById('timerLeft').textContent = '';
+      document.querySelectorAll('#timerChips .chip').forEach(function (c) {
+        c.classList.toggle('active', c.getAttribute('data-min') === '0');
+      });
+      stopAllSounds(4);
+      stopBreath();
+      toast('定时结束，已停止播放');
+      return;
+    }
+    var sec = Math.ceil(left / 1000);
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    document.getElementById('timerLeft').textContent = '剩余 ' + m + ':' + (s < 10 ? '0' : '') + s;
+  }
+
+  /* ============================================================
+     6. 4-7-8 呼吸引导
+     ============================================================ */
+  function toggleBreath() { if (breath.on) stopBreath(); else startBreath(); }
+
+  function startBreath() {
+    breath.on = true;
+    breath.start = performance.now();
+    breath.shownPhase = -1; breath.shownCount = -1; breath.shownCycle = -1;
+    document.getElementById('breathToggle').textContent = '停止';
+    document.getElementById('breathToggle').setAttribute('aria-pressed', 'true');
+    breath.raf = requestAnimationFrame(loopBreath);
+  }
+
+  function stopBreath() {
+    breath.on = false;
+    if (breath.raf) cancelAnimationFrame(breath.raf);
+    breath.raf = 0;
+    document.getElementById('breathToggle').textContent = '开始';
+    document.getElementById('breathToggle').setAttribute('aria-pressed', 'false');
+    document.getElementById('breathPhase').textContent = '准备';
+    document.getElementById('breathCount').textContent = '\u00A0';
+    document.getElementById('breathPulse').style.transform = 'scale(.62)';
+    document.getElementById('breathRing').style.setProperty('--p', 0);
+    document.getElementById('breathHint').innerHTML = '<b>吸气 4 秒</b> · <b>屏息 7 秒</b> · <b>呼气 8 秒</b>';
+  }
+
+  function loopBreath() {
+    if (!breath.on) return;
+    var el = (performance.now() - breath.start) / 1000;
+    var cyc = el % CYCLE;
+    var acc = 0, idx = PHASES.length - 1;
+    var phEl = cyc - (CYCLE - PHASES[PHASES.length - 1].dur);
+    for (var i = 0; i < PHASES.length; i++) {
+      if (cyc < acc + PHASES[i].dur) { idx = i; phEl = cyc - acc; break; }
+      acc += PHASES[i].dur;
+    }
+    var ph = PHASES[idx];
+    var scale = idx === 0 ? 0.62 + 0.38 * (phEl / ph.dur)
+              : idx === 1 ? 1
+              : 1 - 0.38 * (phEl / ph.dur);
+
+    document.getElementById('breathPulse').style.transform = 'scale(' + scale.toFixed(4) + ')';
+    document.getElementById('breathRing').style.setProperty('--p', (cyc / CYCLE).toFixed(4));
+
+    var count = Math.max(1, Math.ceil(ph.dur - phEl));
+    var cycles = Math.floor(el / CYCLE);
+    if (idx !== breath.shownPhase) {
+      document.getElementById('breathPhase').textContent = ph.name;
+      document.getElementById('breathHint').innerHTML = '<b>' + ph.name + ' ' + ph.dur + ' 秒</b> · ' + ph.hint;
+      breath.shownPhase = idx;
+    }
+    if (count !== breath.shownCount) {
+      document.getElementById('breathCount').textContent = count;
+      breath.shownCount = count;
+    }
+    if (cycles !== breath.shownCycle) {
+      document.getElementById('breathCycles').textContent = '已完成 ' + cycles + ' 轮';
+      breath.shownCycle = cycles;
+    }
+    breath.raf = requestAnimationFrame(loopBreath);
+  }
+
+  /* ============================================================
+     7. 启动
+     ============================================================ */
+  buildUI();
+  setMaster(state.master);
+  setTimer(0);
+  window.addEventListener('pointerdown', resumeAudio, { once: true });
+})();
+</script>
+</body>
+</html>
