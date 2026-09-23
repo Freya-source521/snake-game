@@ -24,7 +24,7 @@ body::before{
     radial-gradient(58% 42% at 12% 0%, rgba(110,168,254,.10), transparent 68%),
     radial-gradient(48% 38% at 92% 6%, rgba(120,255,214,.05), transparent 68%);
 }
-.wrap{position:relative; z-index:1; max-width:1000px; margin:0 auto; padding:26px 18px 210px}
+.wrap{position:relative; z-index:1; max-width:1000px; margin:0 auto; padding:26px 18px 210px; transition:padding-bottom .3s ease}
 header.top{display:flex; align-items:flex-end; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:20px}
 h1{font-size:21px; margin:0; font-weight:600; letter-spacing:.4px}
 .sub{margin:7px 0 0; font-size:12.5px; color:var(--muted); line-height:1.6}
@@ -104,9 +104,22 @@ input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:
 .btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
 .btn.primary{border:0; background:linear-gradient(180deg,#6ea8fe,#4b82e0); color:#06111f; font-weight:600; font-size:15px; padding:13px 34px; border-radius:13px; box-shadow:0 14px 34px -16px rgba(110,168,254,.95)}
 
-.dock{position:fixed; left:0; right:0; bottom:0; z-index:6; padding:12px 18px calc(12px + env(safe-area-inset-bottom));
-  background:rgba(10,13,18,.88); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); border-top:1px solid var(--line)}
-.dock-inner{max-width:1000px; margin:0 auto; display:flex; flex-direction:column; gap:11px}
+.dock{position:fixed; left:0; right:0; bottom:0; z-index:6; padding:0 18px calc(10px + env(safe-area-inset-bottom));
+  background:rgba(10,13,18,.88); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); border-top:1px solid var(--line);
+  transition:padding-bottom .3s ease}
+body.dock-collapsed .dock{padding-bottom:calc(4px + env(safe-area-inset-bottom))}
+.dock-inner{position:relative; max-width:1000px; margin:0 auto; display:flex; flex-direction:column}
+.dock-handle{appearance:none; font-family:inherit; width:100%; height:34px; padding:0; border:0; background:transparent;
+  display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;
+  color:var(--muted); font-size:11.5px; letter-spacing:1.5px; transition:color .18s}
+.dock-handle:hover{color:var(--accent)}
+.dock-handle:focus-visible{outline:2px solid var(--accent); outline-offset:-3px}
+.dock-handle .chev{display:flex; transition:transform .3s ease}
+body.dock-collapsed .dock-handle .chev{transform:rotate(180deg)}
+.handle-status{position:absolute; right:2px; top:11px; font-size:11.5px; color:#c3cfdf; font-variant-numeric:tabular-nums}
+.dock-body{display:flex; flex-direction:column; gap:11px; overflow:hidden; max-height:200px; padding-top:2px;
+  transition:max-height .32s ease, opacity .24s ease, transform .32s ease}
+body.dock-collapsed .dock-body{max-height:0; opacity:0; transform:translateY(12px); padding-top:0}
 .dock-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap}
 .dock-label{font-size:12px; color:var(--muted); flex:0 0 auto; letter-spacing:.5px}
 .dock-row input[type=range]{flex:1 1 160px; min-width:120px}
@@ -128,11 +141,14 @@ input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:
   background:rgba(30,40,56,.97); border:1px solid #33415a; color:#dce6f5; padding:10px 18px; border-radius:12px;
   font-size:13px; transition:opacity .3s, transform .3s; white-space:nowrap}
 .toast.show{opacity:1; transform:translate(-50%,0)}
+body.dock-collapsed .toast{bottom:78px}
+body.dock-collapsed .wrap{padding-bottom:96px}
 
 @media (max-width:880px){ .grid{grid-template-columns:repeat(2,1fr)} }
 @media (max-width:520px){
   .presets{grid-template-columns:repeat(2,1fr)}
   .wrap{padding:20px 14px 235px}
+  body.dock-collapsed .wrap{padding-bottom:106px}
   .breath-ring{width:152px; height:152px}
   .breath-pulse{inset:18px}
 }
@@ -179,18 +195,25 @@ input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:
   </section>
 </div>
 
-<div class="dock">
+<div class="dock" id="dock">
   <div class="dock-inner">
-    <div class="dock-row">
-      <span class="dock-label">总音量</span>
-      <input type="range" id="master" min="0" max="100" step="1" value="70" aria-label="总音量">
-      <span class="dock-val" id="masterVal">70%</span>
-      <button class="btn" id="stopAll">全部停止</button>
-    </div>
-    <div class="dock-row">
-      <span class="dock-label">定时关闭</span>
-      <div class="chips" id="timerChips"></div>
-      <span class="dock-val" id="timerLeft"></span>
+    <button class="dock-handle" id="dockHandle" type="button" aria-expanded="true" aria-controls="dockBody" aria-label="收起或展开底部控制条">
+      <span class="chev" aria-hidden="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+      <span id="handleText">收起控制条</span>
+    </button>
+    <span class="handle-status" id="handleStatus"></span>
+    <div class="dock-body" id="dockBody">
+      <div class="dock-row">
+        <span class="dock-label">总音量</span>
+        <input type="range" id="master" min="0" max="100" step="1" value="70" aria-label="总音量">
+        <span class="dock-val" id="masterVal">70%</span>
+        <button class="btn" id="stopAll">全部停止</button>
+      </div>
+      <div class="dock-row">
+        <span class="dock-label">定时关闭</span>
+        <div class="chips" id="timerChips"></div>
+        <span class="dock-val" id="timerLeft"></span>
+      </div>
     </div>
   </div>
 </div>
@@ -294,7 +317,7 @@ input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:
   var saveHandle = null;
 
   function loadState() {
-    var s = { master: DEFAULTS.master, on: {}, vol: {} };
+    var s = { master: DEFAULTS.master, on: {}, vol: {}, dockCollapsed: false };
     SOURCES.forEach(function (src) {
       s.on[src.id] = !!DEFAULTS.on[src.id];
       s.vol[src.id] = DEFAULTS.vol[src.id];
@@ -305,6 +328,7 @@ input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:
         var saved = JSON.parse(raw);
         if (saved && typeof saved === 'object') {
           if (typeof saved.master === 'number') s.master = clamp(saved.master, 0, 100);
+          if (typeof saved.dockCollapsed === 'boolean') s.dockCollapsed = saved.dockCollapsed;
           SOURCES.forEach(function (src) {
             if (saved.on && typeof saved.on[src.id] === 'boolean') s.on[src.id] = saved.on[src.id];
             if (saved.vol && typeof saved.vol[src.id] === 'number') s.vol[src.id] = clamp(saved.vol[src.id], 0, 100);
@@ -870,6 +894,10 @@ input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:
       setMaster(parseFloat(e.target.value));
       saveState();
     });
+    document.getElementById('dockHandle').addEventListener('click', function () {
+      resumeAudio();
+      setDockCollapsed(!state.dockCollapsed);
+    });
     document.getElementById('stopAll').addEventListener('click', function () {
       stopAllSounds(0.8);
       toast('已停止全部声音');
@@ -922,6 +950,29 @@ input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:
     toastHandle = setTimeout(function () { el.classList.remove('show'); }, 2200);
   }
 
+  /* ---------- 底部控制条：收起 / 展开 ---------- */
+  function fmtLeft() {
+    var sec = Math.max(0, Math.ceil((timer.endAt - Date.now()) / 1000));
+    var m = Math.floor(sec / 60);
+    var s = sec % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function updateHandleStatus() {
+    var el = document.getElementById("handleStatus");
+    if (!el) return;
+    el.textContent = (state.dockCollapsed && timer.endAt) ? "剩余 " + fmtLeft() : "";
+  }
+
+  function setDockCollapsed(collapsed, persist) {
+    state.dockCollapsed = !!collapsed;
+    document.body.classList.toggle("dock-collapsed", state.dockCollapsed);
+    document.getElementById("dockHandle").setAttribute("aria-expanded", state.dockCollapsed ? "false" : "true");
+    document.getElementById("handleText").textContent = state.dockCollapsed ? "展开控制条" : "收起控制条";
+    updateHandleStatus();
+    if (persist !== false) saveState();
+  }
+
   /* ============================================================
      5. 定时关闭
      ============================================================ */
@@ -934,6 +985,7 @@ input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:
     if (!min) {
       timer.endAt = 0;
       document.getElementById('timerLeft').textContent = '';
+      updateHandleStatus();
       return;
     }
     timer.endAt = Date.now() + min * 60000;
@@ -954,6 +1006,7 @@ input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:
       });
       stopAllSounds(4);
       stopBreath();
+      updateHandleStatus();
       toast('定时结束，已停止播放');
       return;
     }
@@ -961,6 +1014,7 @@ input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:
     var m = Math.floor(sec / 60);
     var s = sec % 60;
     document.getElementById('timerLeft').textContent = '剩余 ' + m + ':' + (s < 10 ? '0' : '') + s;
+    updateHandleStatus();
   }
 
   /* ============================================================
@@ -1032,6 +1086,7 @@ input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:
   buildUI();
   setMaster(state.master);
   setTimer(0);
+  setDockCollapsed(state.dockCollapsed, false);
   window.addEventListener('pointerdown', resumeAudio, { once: true });
 })();
 </script>
